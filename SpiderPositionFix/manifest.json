@@ -1,5 +1,5 @@
 {
-    "name": "Spider Position Fix",
+    "name": "SpiderPositionFix",
     "version_number": "1.0.0",
     "website_url": "https://github.com/Fandovec03/SpiderPositionFix",
     "description": "Fixes for spider getting stuck and desync of the instance and mesh container",
