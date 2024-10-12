@@ -24,17 +24,14 @@ namespace SpiderPositionFix.Patches
         [HarmonyPostfix]
         static void MeshContainerPositionFix(SandSpiderAI __instance)
         {       
-
-            InicialScript.Logger.LogInfo(Vector3.Distance(__instance.meshContainerPosition, __instance.transform.position));
-
             if (startPatch != true) return;
 
             if (!__instance.lookingForWallPosition && !__instance.gotWallPositionInLOS && !isInWallState)
             {
-                if (Vector3.Distance(__instance.meshContainerPosition, __instance.transform.position) > 1f)
+                if (Vector3.Distance(__instance.meshContainerPosition, __instance.transform.position) > 0.8f)
                 {
                     __instance.meshContainer.LookAt(__instance.transform.position, __instance.transform.up);
-                    __instance.meshContainerPosition = Vector3.Lerp(__instance.meshContainerPosition, __instance.transform.position, Distance(Vector3.Distance(__instance.meshContainerPosition, __instance.transform.position), 2f) * Time.deltaTime);
+                    __instance.meshContainerPosition = Vector3.Slerp(__instance.meshContainerPosition, __instance.transform.position, Distance(Vector3.Distance(__instance.meshContainerPosition, __instance.transform.position), 2f) * Time.deltaTime);
                 }
             }
             if (__instance.lookingForWallPosition && __instance.gotWallPositionInLOS && !isInWallState)
