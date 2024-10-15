@@ -28,10 +28,13 @@ namespace SpiderPositionFix.Patches
 
             if (!__instance.lookingForWallPosition && !__instance.gotWallPositionInLOS && !isInWallState)
             {
-                if (Vector3.Distance(__instance.meshContainerPosition, __instance.transform.position) > 0.8f)
+                if (Vector3.Distance(__instance.meshContainerPosition, __instance.transform.position) > 0.66f)
                 {
-                    __instance.meshContainer.LookAt(__instance.transform.position, __instance.transform.up);
-                    __instance.meshContainerPosition = Vector3.Slerp(__instance.meshContainerPosition, __instance.transform.position, Distance(Vector3.Distance(__instance.meshContainerPosition, __instance.transform.position), 2f) * Time.deltaTime);
+                    if (__instance.agent.velocity.magnitude > 0f)
+                    {
+                        __instance.meshContainer.rotation = __instance.gameObject.transform.rotation;
+                    }
+                    __instance.meshContainerPosition = Vector3.Slerp(__instance.meshContainerPosition, __instance.transform.position, Distance(Vector3.Distance(__instance.meshContainerPosition, __instance.transform.position), 0.5f) * Time.deltaTime);
                 }
             }
             if (__instance.lookingForWallPosition && __instance.gotWallPositionInLOS && !isInWallState)
@@ -50,9 +53,9 @@ namespace SpiderPositionFix.Patches
             }
         }
 
-        static float Distance(float distance, float speed)
+        static float Distance(float distance, float time)
         {
-            float ratio = distance / speed;
+            float ratio = distance / time;
             return ratio;
         }
     }
