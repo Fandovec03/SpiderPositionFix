@@ -43,7 +43,7 @@ namespace SpiderPositionFix.Patches
                 //InicialScript.Logger.LogDebug("Spider: wallState: " + instanceData.isInWallState);
                 if (Vector3.Distance(__instance.meshContainerPosition, __instance.transform.position) > 0.75f && !__instance.onWall)
                 {
-                    if (!__instance.onWall)
+                    if (!__instance.onWall && !__instance.overrideSpiderLookRotation)
                     {
                         __instance.meshContainerTargetRotation = __instance.agent.transform.rotation;
                     }
@@ -62,7 +62,7 @@ namespace SpiderPositionFix.Patches
                 instanceData.isInWallState = true;
                 //InicialScript.Logger.LogDebug("Spider: wallState2: " + instanceData.isInWallState);
             }
-            if (!__instance.lookingForWallPosition && __instance.moveTowardsDestination && instanceData.isInWallState)
+            if (!__instance.lookingForWallPosition && instanceData.isInWallState && __instance.movingTowardsTargetPlayer)
             {
                 if (instanceData.isInWallState && Vector3.Distance(__instance.meshContainerPosition, __instance.transform.position) < 1f || instanceData.returningFromWallState > 6f)
                 {

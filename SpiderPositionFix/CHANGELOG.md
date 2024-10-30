@@ -1,3 +1,5 @@
+- 1.0.5
+	- rotation patch is not applied when overrideSpiderLookrotation is true
 - 1.0.4
 	- Instead of interpotating meshContainer position and rotation, the mod now interpolates Target position and rotation of the meshContainer. This results in much more natural movement.
 	- Spider looks at the end point of the offMeshLinks when traveling through them for the time being.
