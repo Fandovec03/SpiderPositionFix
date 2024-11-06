@@ -1,3 +1,7 @@
+- 1.0.6
+	- Agent gets slowed down when a distance threshold between agent and container is crossed
+	- Rotation no longer snaps when crossing links
+	- Spider is slightly slower on links
 - 1.0.5
 	- rotation patch is not applied when overrideSpiderLookrotation is true
 - 1.0.4
