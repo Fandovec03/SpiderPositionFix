@@ -44,7 +44,7 @@ namespace SpiderPositionFix.Patches
 
             if (!__instance.lookingForWallPosition && !__instance.gotWallPositionInLOS && !instanceData.isInWallState)
             {
-                if (Vector3.Distance(__instance.meshContainerPosition, __instance.transform.position) > 0.4f && !__instance.onWall)
+                if (Vector3.Distance(__instance.meshContainerPosition, __instance.transform.position) > 0.4f && !__instance.onWall && !__instance.agent.isOnOffMeshLink)
                 {
                     if (instanceData.applySpeedSlowdown == true)
                     {
@@ -58,12 +58,18 @@ namespace SpiderPositionFix.Patches
                     }
                     InicialScript.Logger.LogDebug("Spider: Applying slowdown. New speed: " + __instance.agent.speed);
                 }
-                else if (instanceData.applySpeedSlowdown)
+                else if (instanceData.applySpeedSlowdown && !__instance.agent.isOnOffMeshLink)
                 {
                     instanceData.applySpeedSlowdown = false;
                     instanceData.offsetSpeed = 0;
                     __instance.agent.speed = instanceData.originalSpeed;
                     InicialScript.Logger.LogDebug("Spider: Returning original speed");
+                }
+                if (__instance.agent.isOnOffMeshLink)
+                {
+                    instanceData.applySpeedSlowdown = true;
+                    __instance.agent.speed = instanceData.originalSpeed / 1.25f;
+                   InicialScript.Logger.LogDebug("Spider: On offMeshLink. Cutting speed");
                 }
             }
             else if (instanceData.applySpeedSlowdown && instanceData.isInWallState && !__instance.reachedWallPosition)
@@ -101,7 +107,7 @@ namespace SpiderPositionFix.Patches
                     __instance.meshContainer.position = Vector3.Lerp(__instance.meshContainerPosition, __instance.agent.nextPosition, Distance(Vector3.Distance(__instance.meshContainerPosition, __instance.transform.position), 0.5f));
                     __instance.meshContainerPosition = __instance.meshContainer.position;
 
-                    __instance.meshContainerTargetRotation = Quaternion.Lerp(__instance.meshContainer.rotation, Quaternion.LookRotation(__instance.agent.currentOffMeshLinkData.endPos - __instance.meshContainer.position, Vector3.up), 1f / 0.5f * Time.deltaTime);
+                    __instance.meshContainerTargetRotation = Quaternion.Lerp(__instance.meshContainer.rotation, Quaternion.LookRotation(__instance.agent.currentOffMeshLinkData.endPos - __instance.meshContainer.position, Vector3.up),  0.75f);
                 }
             }
             if (__instance.lookingForWallPosition && __instance.gotWallPositionInLOS && !instanceData.isInWallState || __instance.onWall)
