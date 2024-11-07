@@ -1,3 +1,8 @@
+- 1.0.7
+	- Agent Jump areaMask is now toggled depending on whenever spider is inside or outside
+		- Credit to AudioKnight for reporting the issue
+	- Spider now marks a position where it started climbing wall. Agent now uses this to warp to nearest navmesh instead of the spider
+		- This fixes an issue agent being teleported to nearest NavMesh regardless if it was behind a wall or not
 - 1.0.6
 	- Agent gets slowed down when a distance threshold between agent and container is crossed
 	- Rotation no longer snaps when crossing links
