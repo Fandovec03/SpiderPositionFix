@@ -1,3 +1,7 @@
+- 1.0.8
+	- Fixed agent moving during stare.
+	- Tweaked thresholds
+	- Spider movement is less jittery when moving on slopes.
 - 1.0.7
 	- Agent Jump areaMask is now toggled depending on whenever spider is inside or outside
 		- Credit to AudioKnight for reporting the issue

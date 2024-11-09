@@ -1,11 +1,11 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <!-- BepInEx Properties -->
     <PropertyGroup>
         <AssemblyName>fandovec03.SpiderPositionFix</AssemblyName>
         <Product>SpiderPositionFix</Product>
         <!-- Change to whatever version you're currently on. -->
-        <Version>1.0.7</Version>
+        <Version>1.0.8</Version>
     </PropertyGroup>
 
     <!-- Project Properties -->
