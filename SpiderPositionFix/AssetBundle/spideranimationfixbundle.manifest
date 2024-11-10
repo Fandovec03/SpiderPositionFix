@@ -1,0 +1,25 @@
+ManifestFileVersion: 0
+CRC: 847013430
+Hashes:
+  AssetFileHash:
+    serializedVersion: 2
+    Hash: dc85f05a093230336feef0254f3cc119
+  TypeTreeHash:
+    serializedVersion: 2
+    Hash: ba113f89a653f59d5828f78f32865cc0
+  IncrementalBuildHash:
+    serializedVersion: 2
+    Hash: dc85f05a093230336feef0254f3cc119
+HashAppended: 0
+ClassTypes:
+- Class: 74
+  Script: {instanceID: 0}
+- Class: 91
+  Script: {instanceID: 0}
+- Class: 221
+  Script: {instanceID: 0}
+SerializeReferenceClassIdentifiers: []
+Assets:
+- Assets/LethalCompany/CustomAnims/SandSpider/SpiderIdleFix.anim
+- Assets/LethalCompany/CustomAnims/SandSpider/Spider Anim Override.overrideController
+Dependencies: []

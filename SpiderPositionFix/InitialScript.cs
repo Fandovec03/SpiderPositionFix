@@ -2,10 +2,11 @@ using BepInEx;
 using BepInEx.Configuration;
 using BepInEx.Logging;
 using HarmonyLib;
+using UnityEngine;
 using SpiderPositionFix.Patches;
-using System;
 using System.Collections.Generic;
 using System.Reflection;
+using System.IO;
 
 namespace SpiderPositionFix
 {
@@ -17,6 +18,7 @@ namespace SpiderPositionFix
         internal static Harmony? Harmony { get; set; }
         internal static ConfigClass configSettings { get; set; } = null;
         internal static bool isStarlancePresent = BepInEx.Bootstrap.Chainloader.PluginInfos.ContainsKey("AudioKnight-StarlancerEnemyEscape");
+        public static AssetBundle SpiderAssets;
         private void Awake()
         {
             Logger = base.Logger;
@@ -24,6 +26,13 @@ namespace SpiderPositionFix
             configSettings = new ConfigClass(base.Config);
 
             Patch();
+
+            string sAssemblyLocation = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+            SpiderAssets = AssetBundle.LoadFromFile(Path.Combine(sAssemblyLocation, "spideranimationfixbundle"));
+            if (SpiderAssets == null)
+            {
+                Logger.LogError("Failed to load Assets");
+            }
 
             Logger.LogInfo($"{MyPluginInfo.PLUGIN_GUID} v{MyPluginInfo.PLUGIN_VERSION} has loaded!");
         }

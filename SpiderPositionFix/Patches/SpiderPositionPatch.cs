@@ -1,5 +1,6 @@
 using HarmonyLib;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using UnityEngine;
 using UnityEngine.AI;
 
@@ -27,6 +28,20 @@ namespace SpiderPositionFix.Patches
         [HarmonyPostfix]
         static void StartPostfix(SandSpiderAI __instance)
         {
+            if (InitialScript.SpiderAssets != null)
+            {
+                try
+                {
+                    AnimatorOverrideController controller = InitialScript.SpiderAssets.LoadAsset<AnimatorOverrideController>("Assets/LethalCompany/CustomAnims/SandSpider/Spider Anim Override.overrideController");
+                    __instance.creatureAnimator.runtimeAnimatorController = controller;
+                }
+                catch
+                {
+                    InitialScript.Logger.LogError("Failed to load OverrideController asset");
+                }
+            }
+
+
             if (!spiderData.ContainsKey(__instance))
             {
                 spiderData.Add(__instance, new spiderPositionData());
