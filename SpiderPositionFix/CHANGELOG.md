@@ -1,3 +1,5 @@
+- 1.1.0
+	- Fixed idle animation having an offset. Spider is symmetrical.
 - 1.0.8
 	- Fixed agent moving during stare.
 	- Tweaked thresholds
