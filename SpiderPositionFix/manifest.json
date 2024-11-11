@@ -1,7 +1,7 @@
 {
-    "name": "SpiderPositionFix",
-    "version_number": "1.1.0",
-    "website_url": "https://github.com/Fandovec03/SpiderPositionFix",
-    "description": "Fixes for the spider getting stuck and desync between agent and mesh container",
-    "dependencies": []
+  "name": "SpiderPositionFix",
+  "version_number": "1.1.1",
+  "website_url": "https://github.com/Fandovec03/SpiderPositionFix",
+  "description": "Fixes for the spider desync between agent and mesh container and the offset idle animation",
+  "dependencies": []
 }

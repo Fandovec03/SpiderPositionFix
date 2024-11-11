@@ -1,3 +1,8 @@
+- 1.1.1
+	- Rewamped how spider moves to wallposition. Spider agent now pathfinds below the wall position before meshcontainer and agent separates
+	- Changed formula of how much agent speed is reduced
+	- Spider now tilts when moving on slopes
+	- Tweaked thresholds
 - 1.1.0
 	- Fixed idle animation having an offset. Spider is symmetrical.
 - 1.0.8

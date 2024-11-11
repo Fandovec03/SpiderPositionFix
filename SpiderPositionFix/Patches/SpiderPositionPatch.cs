@@ -9,13 +9,11 @@ namespace SpiderPositionFix.Patches
     class spiderPositionData
     {
         public int currentJumpMaskBit = 1;
-        public bool isInWallState = false;
         public float returningFromWallState = 0f;
         public bool startPatch = false;
         public bool applySpeedSlowdown = false;
         public float originalSpeed = 4.25f;
         public float offsetSpeed = 0f;
-        public Vector3 climpPoint = Vector3.zero;
     }
 
     [HarmonyPatch(typeof(SandSpiderAI))]
@@ -40,8 +38,6 @@ namespace SpiderPositionFix.Patches
                     InitialScript.Logger.LogError("Failed to load OverrideController asset");
                 }
             }
-
-
             if (!spiderData.ContainsKey(__instance))
             {
                 spiderData.Add(__instance, new spiderPositionData());
@@ -64,7 +60,7 @@ namespace SpiderPositionFix.Patches
                 else if (!__instance.isOutside && instanceData.currentJumpMaskBit != 0)
                 {
                     ChangeJumpMask(__instance, ref instanceData.currentJumpMaskBit);
-                    instanceData.currentJumpMaskBit= 0;
+                    instanceData.currentJumpMaskBit = 0;
                 }
             }
             if (__instance.watchFromDistance == true)
@@ -74,22 +70,30 @@ namespace SpiderPositionFix.Patches
             }
             if (!instanceData.applySpeedSlowdown)
             {
-                instanceData.originalSpeed = __instance.agent.speed;
+                if (__instance.currentBehaviourStateIndex == 1)
+                {
+                    instanceData.originalSpeed = __instance.spiderSpeed;
+                }
+                else instanceData.originalSpeed = __instance.agent.speed;
             }
 
-            if (!__instance.lookingForWallPosition && !__instance.gotWallPositionInLOS && !instanceData.isInWallState)
+            if (!__instance.onWall)
             {
-                if (Vector3.Distance(__instance.meshContainerPosition, __instance.transform.position) > 0.3f && !__instance.onWall && !__instance.agent.isOnOffMeshLink)
+                if (Vector3.Distance(__instance.meshContainerPosition, __instance.transform.position) > 0.4f && !__instance.agent.isOnOffMeshLink)
                 {
                     if (instanceData.applySpeedSlowdown == true)
                     {
-                        instanceData.offsetSpeed += Time.deltaTime * (Mathf.Clamp(Vector3.Distance(__instance.meshContainerPosition, __instance.transform.position), 0f, 1f) / 0.4f);
-                        __instance.agent.speed = instanceData.originalSpeed - Mathf.Min(0.75f, instanceData.offsetSpeed);
+                        instanceData.offsetSpeed = Mathf.Clamp(Vector3.Distance(__instance.meshContainerPosition, __instance.transform.position), 0f, 2f) / 2;
+                        __instance.agent.speed = instanceData.originalSpeed - Mathf.Min(1f, instanceData.offsetSpeed) - 0.15f;
                     }
                     else
                     {
                         instanceData.applySpeedSlowdown = true;
-                        __instance.agent.speed = instanceData.originalSpeed;
+                        if (__instance.currentBehaviourStateIndex == 1)
+                        {
+                            instanceData.originalSpeed = __instance.spiderSpeed;
+                        }
+                        else __instance.agent.speed = instanceData.originalSpeed;
                     }
                     if (debug && instanceData.originalSpeed != 0) InitialScript.Logger.LogDebug("Applying slowdown. New speed: " + __instance.agent.speed);
                 }
@@ -103,16 +107,23 @@ namespace SpiderPositionFix.Patches
                 if (__instance.agent.isOnOffMeshLink)
                 {
                     instanceData.applySpeedSlowdown = true;
-                    __instance.agent.speed = instanceData.originalSpeed / 1.25f;
+                    __instance.agent.speed = instanceData.originalSpeed / 1.15f;
                     if (debug) InitialScript.Logger.LogDebug("On offMeshLink. Cutting speed");
                 }
             }
-            else if (instanceData.applySpeedSlowdown && instanceData.isInWallState && !__instance.reachedWallPosition)
+            else
             {
-                instanceData.applySpeedSlowdown = false;
-                instanceData.offsetSpeed = 0;
-                __instance.agent.speed = instanceData.originalSpeed;
-                if (debug) InitialScript.Logger.LogDebug("/2/ Returning original speed");
+                if (instanceData.applySpeedSlowdown && __instance.onWall && !__instance.reachedWallPosition)
+                {
+                    instanceData.applySpeedSlowdown = false;
+                    instanceData.offsetSpeed = 0;
+                    __instance.agent.speed = instanceData.originalSpeed;
+                    if (debug) InitialScript.Logger.LogDebug("/2/ Returning original speed");
+                }
+                if (__instance.onWall && (__instance.meshContainerTarget == __instance.floorPosition || __instance.meshContainerTarget == __instance.wallPosition))
+                {
+                    __instance.agent.speed = 0f;
+                }
             }
         }
         [HarmonyPatch("LateUpdate")]
@@ -121,22 +132,17 @@ namespace SpiderPositionFix.Patches
         {
             spiderPositionData instanceData = spiderData[__instance];
             if (instanceData.startPatch != true) return;
-            if (!__instance.lookingForWallPosition && __instance.moveTowardsDestination && spiderData[__instance].isInWallState)
-            {
-                if (debug) InitialScript.Logger.LogInfo("Warping agent to nearest navMesh position to climbPoint: " + spiderData[__instance].climpPoint + ". Distance: " + Vector3.Distance(__instance.agent.transform.position, spiderData[__instance].climpPoint));
-                __instance.agent.Warp(RoundManager.Instance.GetNavMeshPosition(spiderData[__instance].climpPoint, default, 2.5f));
-            }
 
-            if (!__instance.lookingForWallPosition && !__instance.gotWallPositionInLOS && !instanceData.isInWallState)
+            if (!__instance.lookingForWallPosition && !__instance.gotWallPositionInLOS && !__instance.onWall)
             {
-                if ((Vector3.Distance(__instance.meshContainerPosition, __instance.transform.position) > 0.75f || Mathf.Abs(__instance.meshContainerPosition.y - __instance.transform.position.y) > 0.15f) && !__instance.onWall)
+                if (Vector3.Distance(__instance.meshContainerPosition, __instance.transform.position) > 0.8f || Mathf.Abs(__instance.meshContainerPosition.y - __instance.transform.position.y) > 0.25f)
                 {
                     string text = "null";
-                    if (Vector3.Distance(__instance.meshContainerPosition, __instance.transform.position) > 0.75f)
+                    if (Vector3.Distance(__instance.meshContainerPosition, __instance.transform.position) > 0.8f)
                     {
                         text = "Triggered by distance: " + Vector3.Distance(__instance.meshContainerPosition, __instance.transform.position);
                     }
-                    else if(Mathf.Abs(__instance.meshContainerPosition.y - __instance.transform.position.y) > 0.15f)
+                    else if (Mathf.Abs(__instance.meshContainerPosition.y - __instance.transform.position.y) > 0.25f)
                     {
                         text = "Triggered by height projection: " + Mathf.Abs(__instance.meshContainerPosition.y - __instance.transform.position.y);
                     }
@@ -155,27 +161,41 @@ namespace SpiderPositionFix.Patches
 
                     __instance.meshContainerTargetRotation = Quaternion.Lerp(__instance.meshContainer.rotation, Quaternion.LookRotation(__instance.agent.currentOffMeshLinkData.endPos - __instance.meshContainer.position, Vector3.up), 0.75f);
                 }
-            }
-            if (__instance.onWall && spiderData[__instance].climpPoint == Vector3.zero)
-            {
-                spiderData[__instance].climpPoint = __instance.meshContainer.position;
-                if (debug) InitialScript.Logger.LogDebug("Set new climpPoint: " + spiderData[__instance].climpPoint);
-            }
-            if (__instance.lookingForWallPosition && __instance.gotWallPositionInLOS && !instanceData.isInWallState || __instance.onWall)
-            {
-                instanceData.isInWallState = true;
-                if (debug) InitialScript.Logger.LogDebug("wallState2: " + instanceData.isInWallState);
-            }
-            if (!__instance.lookingForWallPosition && instanceData.isInWallState && __instance.movingTowardsTargetPlayer)
-            {
-                if (instanceData.isInWallState && Vector3.Distance(__instance.meshContainerPosition, __instance.transform.position) < 1f || instanceData.returningFromWallState > 6f)
+                else if (Mathf.Abs(__instance.meshContainerPosition.y - __instance.transform.position.y) > 0.25f)
                 {
-                    if (debug) InitialScript.Logger.LogDebug("returning from wall state and zeroing climp point: " + instanceData.climpPoint + ". Distance: " + Vector3.Distance(__instance.meshContainerPosition, __instance.transform.position));
-                    instanceData.isInWallState = false;
-                    instanceData.climpPoint = Vector3.zero;
+                    __instance.meshContainerTargetRotation = Quaternion.LookRotation(__instance.agent.transform.position - __instance.meshContainer.position, Vector3.up);
+                }
+            }
+
+            if (!__instance.lookingForWallPosition && __instance.onWall && __instance.movingTowardsTargetPlayer)
+            {
+                if (__instance.onWall && Vector3.Distance(__instance.meshContainerPosition, __instance.transform.position) < 1f || instanceData.returningFromWallState > 6f)
+                { 
                     instanceData.returningFromWallState = 0f;
                 }
             }
+        }
+
+        [HarmonyPatch("CalculateMeshMovement")]
+        [HarmonyPrefix]
+        static bool MeshMovementPatch(SandSpiderAI __instance)
+        {
+            if (__instance.lookingForWallPosition && __instance.gotWallPositionInLOS)
+            {
+                if(!__instance.onWall)
+                {
+                    __instance.SetDestinationToPosition(__instance.floorPosition);
+                    __instance.CalculateSpiderPathToPosition();
+                    __instance.navigateToPositionTarget = __instance.transform.position + Vector3.Normalize(__instance.agent.desiredVelocity) * 2f;
+                    if (Vector3.Distance(__instance.meshContainer.transform.position, __instance.floorPosition) < 0.7f)
+                    {
+                        __instance.onWall = true;
+                        return true;
+                    }
+                    return false;
+                }
+            }
+            return true;
         }
 
         static float Distance(float distance, float time)
