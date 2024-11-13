@@ -1,3 +1,5 @@
+- 1.1.2
+	- Fixed debug logger missing condition
 - 1.1.1
 	- Rewamped how spider moves to wallposition. Spider agent now pathfinds below the wall position before meshcontainer and agent separates
 	- Changed formula of how much agent speed is reduced

@@ -65,7 +65,7 @@ namespace SpiderPositionFix.Patches
             }
             if (__instance.watchFromDistance == true)
             {
-                InitialScript.Logger.LogDebug("watchFromDistance true. Returning...");
+                if (debug) InitialScript.Logger.LogDebug("watchFromDistance true. Returning...");
                 return;
             }
             if (!instanceData.applySpeedSlowdown)
