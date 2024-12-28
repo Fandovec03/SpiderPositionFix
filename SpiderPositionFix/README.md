@@ -1,7 +1,7 @@
 Fixes issues with the spider mesh getting stuck and position desync between the agent and the mesh container as well as other changes to address other issues.<br>
 <br>
 **The fix only requires host to have the mod active!**<br>
-Animation fixes are client-sided
+Animation fixes are client-sided<br>
 <br>
 List of fixes and improvements: <br>
 - Multiple methods addressing the desync between MeshContainer and Agent
