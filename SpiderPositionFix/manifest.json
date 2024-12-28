@@ -2,6 +2,6 @@
   "name": "SpiderPositionFix",
   "version_number": "1.2.0",
   "website_url": "https://github.com/Fandovec03/SpiderPositionFix",
-  "description": "Host fixes for the spider desync between agent and mesh container and the offset idle animation on clients",
+  "description": "Host fixes for the spider position desync between agent and mesh container and client-side fix for the offset idle animation",
   "dependencies": []
 }
