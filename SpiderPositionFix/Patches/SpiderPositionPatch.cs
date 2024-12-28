@@ -14,6 +14,7 @@ namespace SpiderPositionFix.Patches
         public bool applySpeedSlowdown = false;
         public float originalSpeed = 4.25f;
         public float offsetSpeed = 0f;
+        public float reachedWallTimer = 0f;
     }
 
     [HarmonyPatch(typeof(SandSpiderAI))]
@@ -44,12 +45,39 @@ namespace SpiderPositionFix.Patches
             }
             spiderData[__instance].startPatch = true;
         }
+
+        [HarmonyPatch("Update")]
+        [HarmonyPrefix]
+        static void UpdatePrefix(SandSpiderAI __instance)
+        {
+            spiderPositionData instanceData = spiderData[__instance];
+
+            if (__instance.IsOwner)
+            {
+                if (__instance.reachedWallPosition && __instance.currentBehaviourStateIndex == 1 && __instance.agent.enabled == true)
+                {
+                    __instance.agent.enabled = false;
+                    //__instance.agent.Warp(__instance.meshContainer.transform.position);
+                }
+
+                if (__instance.agent.enabled == false && (!__instance.onWall || __instance.waitOnWallTimer <= 0 || __instance.currentBehaviourStateIndex != 1))
+                {
+                    __instance.agent.enabled = true;
+                    if (__instance.onWall)
+                    {
+                        //__instance.agent.Warp(__instance.floorPosition);
+                    }
+                }
+            }
+        }
+
+
         [HarmonyPatch("Update")]
         [HarmonyPostfix]
         static void UpdatePostfix(SandSpiderAI __instance)
         {
             spiderPositionData instanceData = spiderData[__instance];
-
+            if (!__instance.IsOwner) return;
             if (InitialScript.configSettings.applyMask.Value == true)
             {
                 if (__instance.isOutside && instanceData.currentJumpMaskBit != 1)
@@ -79,11 +107,11 @@ namespace SpiderPositionFix.Patches
 
             if (!__instance.onWall)
             {
-                if (Vector3.Distance(__instance.meshContainerPosition, __instance.transform.position) > 0.4f && !__instance.agent.isOnOffMeshLink)
+                if (Vector3.Distance(__instance.meshContainer.position, __instance.transform.position) > 0.4f && !__instance.agent.isOnOffMeshLink)
                 {
                     if (instanceData.applySpeedSlowdown == true)
                     {
-                        instanceData.offsetSpeed = Mathf.Clamp(Vector3.Distance(__instance.meshContainerPosition, __instance.transform.position), 0f, 2f) / 2;
+                        instanceData.offsetSpeed = Mathf.Clamp(Vector3.Distance(__instance.meshContainer.position, __instance.transform.position), 0f, 2f) / 2;
                         __instance.agent.speed = instanceData.originalSpeed - Mathf.Min(1f, instanceData.offsetSpeed) - 0.15f;
                     }
                     else
@@ -131,63 +159,89 @@ namespace SpiderPositionFix.Patches
         static void MeshContainerPositionFix(SandSpiderAI __instance)
         {
             spiderPositionData instanceData = spiderData[__instance];
-            if (instanceData.startPatch != true) return;
-
-            if (!__instance.lookingForWallPosition && !__instance.gotWallPositionInLOS && !__instance.onWall)
+            if (__instance.IsOwner)
             {
-                if (Vector3.Distance(__instance.meshContainerPosition, __instance.transform.position) > 0.8f || Mathf.Abs(__instance.meshContainerPosition.y - __instance.transform.position.y) > 0.25f)
+                if (instanceData.startPatch != true) return;
+                if (!__instance.onWall)
                 {
-                    string text = "null";
-                    if (Vector3.Distance(__instance.meshContainerPosition, __instance.transform.position) > 0.8f)
+                    if (Vector3.Distance(__instance.meshContainer.position, __instance.transform.position) > 0.8f || Mathf.Abs(__instance.meshContainer.position.y - __instance.transform.position.y) > 0.25f)
                     {
-                        text = "Triggered by distance: " + Vector3.Distance(__instance.meshContainerPosition, __instance.transform.position);
-                    }
-                    else if (Mathf.Abs(__instance.meshContainerPosition.y - __instance.transform.position.y) > 0.25f)
-                    {
-                        text = "Triggered by height projection: " + Mathf.Abs(__instance.meshContainerPosition.y - __instance.transform.position.y);
-                    }
-                    if (!__instance.onWall && !__instance.overrideSpiderLookRotation)
-                    {
-                        __instance.meshContainerTargetRotation = __instance.agent.transform.rotation;
-                    }
-                    if (debug) InitialScript.Logger.LogDebug(text);
-                    __instance.meshContainerTarget = __instance.agent.transform.position;
+                        string text = "null";
+                        if (Vector3.Distance(__instance.meshContainer.position, __instance.transform.position) > 0.8f)
+                        {
+                            text = "Triggered by distance: " + Vector3.Distance(__instance.meshContainer.position, __instance.transform.position);
+                        }
+                        else if (Mathf.Abs(__instance.meshContainer.position.y - __instance.transform.position.y) > 0.25f)
+                        {
+                            text = "Triggered by height projection: " + Mathf.Abs(__instance.meshContainer.position.y - __instance.transform.position.y);
+                        }
+                        if (!__instance.onWall && !__instance.overrideSpiderLookRotation)
+                        {
+                            __instance.meshContainerTargetRotation = __instance.agent.transform.rotation;
+                        }
+                        if (debug) InitialScript.Logger.LogDebug(text);
+                        __instance.meshContainerTarget = __instance.agent.transform.position;
 
-                }
-                if (__instance.agent.isOnOffMeshLink)
-                {
-                    __instance.meshContainer.position = Vector3.Lerp(__instance.meshContainerPosition, __instance.agent.nextPosition, Distance(Vector3.Distance(__instance.meshContainerPosition, __instance.transform.position), 0.5f));
-                    __instance.meshContainerPosition = __instance.meshContainer.position;
+                    }
+                    if (__instance.agent.isOnOffMeshLink)
+                    {
+                        __instance.meshContainer.position = Vector3.Lerp(__instance.meshContainer.position, __instance.agent.nextPosition, Distance(Vector3.Distance(__instance.meshContainer.position, __instance.transform.position), 0.5f));
+                        __instance.meshContainerPosition = __instance.meshContainer.position;
 
-                    __instance.meshContainerTargetRotation = Quaternion.Lerp(__instance.meshContainer.rotation, Quaternion.LookRotation(__instance.agent.currentOffMeshLinkData.endPos - __instance.meshContainer.position, Vector3.up), 0.75f);
+                        __instance.meshContainerTargetRotation = Quaternion.Lerp(__instance.meshContainer.rotation, Quaternion.LookRotation(__instance.agent.currentOffMeshLinkData.endPos - __instance.meshContainer.position, Vector3.up), 0.75f);
+                    }
+                    else if (Mathf.Abs(__instance.meshContainer.position.y - __instance.transform.position.y) > 0.25f)
+                    {
+                        __instance.meshContainerTargetRotation = Quaternion.LookRotation(__instance.agent.transform.position - __instance.meshContainer.position, Vector3.up);
+                    }
                 }
-                else if (Mathf.Abs(__instance.meshContainerPosition.y - __instance.transform.position.y) > 0.25f)
+
+                if (!__instance.lookingForWallPosition && __instance.onWall && __instance.movingTowardsTargetPlayer)
                 {
-                    __instance.meshContainerTargetRotation = Quaternion.LookRotation(__instance.agent.transform.position - __instance.meshContainer.position, Vector3.up);
+                    if (__instance.onWall && Vector3.Distance(__instance.meshContainer.position, __instance.transform.position) < 1f || instanceData.returningFromWallState > 6f)
+                    {
+                        instanceData.returningFromWallState = 0f;
+                    }
                 }
             }
+            //NavMeshHit navHit = new NavMeshHit();
+            //RoundManager.Instance.GetRandomNavMeshPositionInRadiusSpherical(__instance.floorPosition, 20, navHit);
+        }
 
-            if (!__instance.lookingForWallPosition && __instance.onWall && __instance.movingTowardsTargetPlayer)
+        [HarmonyPatch("DoAIInterval")]
+        [HarmonyPostfix]
+        static void DoAIIntervalPostfix(SandSpiderAI __instance)
+        {
+            /*if (__instance.lookingForWallPosition && __instance.gotWallPositionInLOS && !__instance.reachedWallPosition)
             {
-                if (__instance.onWall && Vector3.Distance(__instance.meshContainerPosition, __instance.transform.position) < 1f || instanceData.returningFromWallState > 6f)
-                { 
-                    instanceData.returningFromWallState = 0f;
-                }
+                spiderData[__instance].reachedWallTimer += __instance.AIIntervalTime;
             }
+            if (spiderData[__instance].reachedWallTimer > 10f)
+            {
+                InitialScript.Logger.LogWarning("Failed to reach wall in time. Recalculating...");
+                __instance.gotWallPositionInLOS = __instance.GetWallPositionForSpiderMesh();
+                spiderData[__instance].reachedWallTimer = 0f;
+            }*/
         }
 
         [HarmonyPatch("CalculateMeshMovement")]
         [HarmonyPrefix]
         static bool MeshMovementPatch(SandSpiderAI __instance)
         {
-            if (__instance.lookingForWallPosition && __instance.gotWallPositionInLOS)
+            if (__instance.lookingForWallPosition && __instance.gotWallPositionInLOS && __instance.IsOwner)
             {
-                if(!__instance.onWall)
+                if (!__instance.onWall)
                 {
+                    float distanceFromFloorPosition = Vector3.Distance(__instance.transform.position, __instance.floorPosition);
+                    float distanceFromFloorPositionMesh = Vector3.Distance(__instance.meshContainer.transform.position, __instance.floorPosition);
+
+                    InitialScript.Logger.LogInfo("distanceFromFloorPosition: " + distanceFromFloorPosition);
+                    InitialScript.Logger.LogInfo("distanceFromFloorPositionMesh: " + distanceFromFloorPositionMesh);
+
                     __instance.SetDestinationToPosition(__instance.floorPosition);
                     __instance.CalculateSpiderPathToPosition();
                     __instance.navigateToPositionTarget = __instance.transform.position + Vector3.Normalize(__instance.agent.desiredVelocity) * 2f;
-                    if (Vector3.Distance(__instance.meshContainer.transform.position, __instance.floorPosition) < 0.7f)
+                    if (distanceFromFloorPosition < 1.7f && distanceFromFloorPositionMesh < 1.7f)
                     {
                         __instance.onWall = true;
                         return true;
@@ -220,6 +274,20 @@ namespace SpiderPositionFix.Patches
                 }
 
                 if (debug) InitialScript.Logger.LogDebug("Spider: Toggled mask bit to " + bit);
+            }
+        }
+
+        [HarmonyPatch("TriggerChaseWithPlayer")]
+        [HarmonyPrefix]
+        static void TriggerChaseWithPlayerPrefix(SandSpiderAI __instance)
+        {
+            if(__instance.agent.enabled == false)
+            {
+                __instance.agent.enabled = true;
+                if(__instance.onWall)
+                {
+                    __instance.agent.Warp(__instance.floorPosition);
+                }
             }
         }
     }

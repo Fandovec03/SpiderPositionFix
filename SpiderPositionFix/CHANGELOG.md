@@ -1,3 +1,8 @@
+- 1.2.0
+	- Fixed spider never reaching the floor position
+	- Fixed spider not climbing wall despite being able to do so
+	- Agent gets disabled once spider reaches wall position
+	- Optimizations (Mostly swapping some variables and preventing execution on non-host clients)
 - 1.1.2
 	- Fixed debug logger missing condition
 - 1.1.1
