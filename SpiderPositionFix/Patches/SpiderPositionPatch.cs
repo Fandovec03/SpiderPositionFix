@@ -15,6 +15,8 @@ namespace SpiderPositionFix.Patches
         public float originalSpeed = 4.25f;
         public float offsetSpeed = 0f;
         public float reachedWallTimer = 0f;
+        public float delayTimer = 0f;
+        public int delayTimes = 0;
     }
 
     [HarmonyPatch(typeof(SandSpiderAI))]
@@ -235,15 +237,32 @@ namespace SpiderPositionFix.Patches
                     float distanceFromFloorPosition = Vector3.Distance(__instance.transform.position, __instance.floorPosition);
                     float distanceFromFloorPositionMesh = Vector3.Distance(__instance.meshContainer.transform.position, __instance.floorPosition);
 
-                    InitialScript.Logger.LogInfo("distanceFromFloorPosition: " + distanceFromFloorPosition);
-                    InitialScript.Logger.LogInfo("distanceFromFloorPositionMesh: " + distanceFromFloorPositionMesh);
+                    if (spiderData[__instance].delayTimer > 0.4f)
+                    {
+                        if (debug)
+                        {
+                            InitialScript.Logger.LogInfo("distanceFromFloorPosition: " + distanceFromFloorPosition);
+                            InitialScript.Logger.LogInfo("distanceFromFloorPositionMesh: " + distanceFromFloorPositionMesh);
+                        }
+                        spiderData[__instance].delayTimer = 0f;
+                        spiderData[__instance].delayTimes++;
 
+                        if (spiderData[__instance].delayTimes >= 40)
+                        {
+                            InitialScript.Logger.LogWarning(__instance + ", ID " + __instance.NetworkObjectId + " failing to climb walls within set timer!");
+                        }
+                    }
+                    else
+                    {
+                        spiderData[__instance].delayTimer += Time.deltaTime;
+                    }
                     __instance.SetDestinationToPosition(__instance.floorPosition);
                     __instance.CalculateSpiderPathToPosition();
                     __instance.navigateToPositionTarget = __instance.transform.position + Vector3.Normalize(__instance.agent.desiredVelocity) * 2f;
                     if (distanceFromFloorPosition < 1.7f && distanceFromFloorPositionMesh < 1.7f)
                     {
                         __instance.onWall = true;
+                        spiderData[__instance].delayTimes = 0;
                         return true;
                     }
                     return false;

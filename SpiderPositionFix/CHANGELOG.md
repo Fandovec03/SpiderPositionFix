@@ -1,3 +1,7 @@
+- 1.2.1
+	- LogInfo made toggleable by debug toggle and set delay to reduce spam
+	- Added warning when spider is failing to climb wall
+
 - 1.2.0
 	- Fixed spider never reaching the floor position
 	- Fixed spider not climbing wall despite being able to do so
