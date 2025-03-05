@@ -109,7 +109,7 @@ namespace SpiderPositionFix.Patches
 
             if (!__instance.onWall)
             {
-                if (Vector3.Distance(__instance.meshContainer.position, __instance.transform.position) > 0.4f && !__instance.agent.isOnOffMeshLink)
+                /*if (Vector3.Distance(__instance.meshContainer.position, __instance.transform.position) > 0.4f && !__instance.agent.isOnOffMeshLink)
                 {
                     if (instanceData.applySpeedSlowdown == true)
                     {
@@ -139,17 +139,22 @@ namespace SpiderPositionFix.Patches
                     instanceData.applySpeedSlowdown = true;
                     __instance.agent.speed = instanceData.originalSpeed / 1.15f;
                     if (debug) InitialScript.Logger.LogDebug("On offMeshLink. Cutting speed");
+                }*/
+                if (!__instance.agent.isOnOffMeshLink)
+                {
+                    __instance.meshContainerPosition = __instance.transform.position;
+                    __instance.meshContainer.transform.position = __instance.transform.position;
                 }
             }
             else
             {
-                if (instanceData.applySpeedSlowdown && __instance.onWall && !__instance.reachedWallPosition)
+                /*if (instanceData.applySpeedSlowdown && __instance.onWall && !__instance.reachedWallPosition)
                 {
                     instanceData.applySpeedSlowdown = false;
                     instanceData.offsetSpeed = 0;
                     __instance.agent.speed = instanceData.originalSpeed;
                     if (debug) InitialScript.Logger.LogDebug("/2/ Returning original speed");
-                }
+                }*/
                 if (__instance.onWall && (__instance.meshContainerTarget == __instance.floorPosition || __instance.meshContainerTarget == __instance.wallPosition))
                 {
                     __instance.agent.speed = 0f;
@@ -166,14 +171,14 @@ namespace SpiderPositionFix.Patches
                 if (instanceData.startPatch != true) return;
                 if (!__instance.onWall)
                 {
-                    if (Vector3.Distance(__instance.meshContainer.position, __instance.transform.position) > 0.8f || Mathf.Abs(__instance.meshContainer.position.y - __instance.transform.position.y) > 0.25f)
+                    if (/*Vector3.Distance(__instance.meshContainer.position, __instance.transform.position) > 0.8f || */Mathf.Abs(__instance.meshContainer.position.y - __instance.transform.position.y) > 0.25f)
                     {
                         string text = "null";
-                        if (Vector3.Distance(__instance.meshContainer.position, __instance.transform.position) > 0.8f)
+                        /*if (Vector3.Distance(__instance.meshContainer.position, __instance.transform.position) > 0.8f)
                         {
                             text = "Triggered by distance: " + Vector3.Distance(__instance.meshContainer.position, __instance.transform.position);
                         }
-                        else if (Mathf.Abs(__instance.meshContainer.position.y - __instance.transform.position.y) > 0.25f)
+                        else */if (Mathf.Abs(__instance.meshContainer.position.y - __instance.transform.position.y) > 0.25f)
                         {
                             text = "Triggered by height projection: " + Mathf.Abs(__instance.meshContainer.position.y - __instance.transform.position.y);
                         }
@@ -187,8 +192,8 @@ namespace SpiderPositionFix.Patches
                     }
                     if (__instance.agent.isOnOffMeshLink)
                     {
-                        __instance.meshContainer.position = Vector3.Lerp(__instance.meshContainer.position, __instance.agent.nextPosition, Distance(Vector3.Distance(__instance.meshContainer.position, __instance.transform.position), 0.5f));
-                        __instance.meshContainerPosition = __instance.meshContainer.position;
+                        /*__instance.meshContainer.position = Vector3.Lerp(__instance.meshContainer.position, __instance.agent.nextPosition, Distance(Vector3.Distance(__instance.meshContainer.position, __instance.transform.position), 0.5f));
+                        __instance.meshContainerPosition = __instance.meshContainer.position;*/
 
                         __instance.meshContainerTargetRotation = Quaternion.Lerp(__instance.meshContainer.rotation, Quaternion.LookRotation(__instance.agent.currentOffMeshLinkData.endPos - __instance.meshContainer.position, Vector3.up), 0.75f);
                     }
@@ -198,13 +203,13 @@ namespace SpiderPositionFix.Patches
                     }
                 }
 
-                if (!__instance.lookingForWallPosition && __instance.onWall && __instance.movingTowardsTargetPlayer)
+               /* if (!__instance.lookingForWallPosition && __instance.onWall && __instance.movingTowardsTargetPlayer)
                 {
                     if (__instance.onWall && Vector3.Distance(__instance.meshContainer.position, __instance.transform.position) < 1f || instanceData.returningFromWallState > 6f)
                     {
                         instanceData.returningFromWallState = 0f;
                     }
-                }
+                }*/
             }
             //NavMeshHit navHit = new NavMeshHit();
             //RoundManager.Instance.GetRandomNavMeshPositionInRadiusSpherical(__instance.floorPosition, 20, navHit);
