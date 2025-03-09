@@ -96,7 +96,7 @@ namespace SpiderPositionFix.Patches
             }
             if (__instance.watchFromDistance == true)
             {
-                if (debug) InitialScript.Logger.LogDebug("watchFromDistance true. Returning...");
+                //if (debug) InitialScript.Logger.LogDebug("watchFromDistance true. Returning...");
                 return;
             }
             if (!instanceData.applySpeedSlowdown)
@@ -141,10 +141,11 @@ namespace SpiderPositionFix.Patches
                     __instance.agent.speed = instanceData.originalSpeed / 1.15f;
                     if (debug) InitialScript.Logger.LogDebug("On offMeshLink. Cutting speed");
                 }
-                if (!__instance.agent.isOnOffMeshLink && Vector3.Distance(__instance.transform.position, __instance.meshContainer.position) <= 0.25f)
+                if (!__instance.agent.isOnOffMeshLink && Vector3.Distance(__instance.transform.position, __instance.meshContainer.position) <= 0.25f && !__instance.onWall)
                 {
-                    __instance.meshContainerPosition = __instance.transform.position;
-                    __instance.meshContainer.position = __instance.transform.position;
+                    //__instance.meshContainerPosition = __instance.transform.position;
+                    //__instance.meshContainer.position = __instance.transform.position;
+                    __instance.meshContainerTarget = __instance.transform.position;
                 }
             }
             else
@@ -166,6 +167,7 @@ namespace SpiderPositionFix.Patches
                 spiderData[__instance].reachTheWallFail = false;
             }
         }
+
         [HarmonyPatch("LateUpdate")]
         [HarmonyPostfix]
         static void MeshContainerPositionFix(SandSpiderAI __instance)
@@ -214,24 +216,27 @@ namespace SpiderPositionFix.Patches
                         __instance.meshContainerTargetRotation = Quaternion.LookRotation(__instance.agent.transform.position - __instance.meshContainer.position, Vector3.up);
                     }*/
 
-                    if (Vector3.Distance(__instance.transform.position, __instance.meshContainer.position) > 0.25f)
+                    if (Vector3.Distance(__instance.transform.position, __instance.meshContainer.position) > 0.25f && !__instance.onWall)
                     {
                         __instance.meshContainerTarget = __instance.transform.position;
                     }
 
-                    __instance.refVel = __instance.agent.velocity;
+                    //InitialScript.Logger.LogInfo($"original: {__instance.refVel.magnitude}, agent velocity: {__instance.agent.velocity.magnitude}, new: {(__instance.agent.velocity * Time.deltaTime).magnitude}");
+
+                    //__instance.refVel = __instance.agent.velocity * Time.deltaTime;
                 }
 
-               /*if (!__instance.lookingForWallPosition && __instance.onWall && __instance.movingTowardsTargetPlayer)
-                {
-                    if (__instance.onWall && Vector3.Distance(__instance.meshContainer.position, __instance.transform.position) < 1f || instanceData.returningFromWallState > 6f)
-                    {
-                        instanceData.returningFromWallState = 0f;
-                    }
-                }*/
+                /*if (!__instance.lookingForWallPosition && __instance.onWall && __instance.movingTowardsTargetPlayer)
+                 {
+                     if (__instance.onWall && Vector3.Distance(__instance.meshContainer.position, __instance.transform.position) < 1f || instanceData.returningFromWallState > 6f)
+                     {
+                         instanceData.returningFromWallState = 0f;
+                     }
+                 }*/
             }
             //NavMeshHit navHit = new NavMeshHit();
             //RoundManager.Instance.GetRandomNavMeshPositionInRadiusSpherical(__instance.floorPosition, 20, navHit);
+            InitialScript.Logger.LogInfo($"original: {__instance.refVel.magnitude}, agent velocity: {__instance.agent.velocity.magnitude}, new: {(__instance.agent.velocity * Time.deltaTime).magnitude}");
         }
 
         [HarmonyPatch("DoAIInterval")]
@@ -288,6 +293,7 @@ namespace SpiderPositionFix.Patches
                     if (distanceFromFloorPosition < 0.7f && distanceFromFloorPositionMesh < 0.7f)
                     {
                         __instance.onWall = true;
+                        __instance.meshContainerTarget = __instance.wallPosition;
                         spiderData[__instance].delayTimes = 0;
                         return true;
                     }
