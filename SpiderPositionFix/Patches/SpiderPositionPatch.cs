@@ -9,7 +9,6 @@ namespace SpiderPositionFix.Patches
     class spiderPositionData
     {
         public int currentJumpMaskBit = 1;
-        public float returningFromWallState = 0f;
         public bool startPatch = false;
         public bool applySpeedSlowdown = false;
         public float originalSpeed = 4.25f;
@@ -17,6 +16,7 @@ namespace SpiderPositionFix.Patches
         public float reachedWallTimer = 0f;
         public float delayTimer = 0f;
         public int delayTimes = 0;
+        public bool reachTheWallFail = false;
     }
 
     [HarmonyPatch(typeof(SandSpiderAI))]
@@ -80,6 +80,7 @@ namespace SpiderPositionFix.Patches
         {
             spiderPositionData instanceData = spiderData[__instance];
             if (!__instance.IsOwner) return;
+
             if (InitialScript.configSettings.applyMask.Value == true)
             {
                 if (__instance.isOutside && instanceData.currentJumpMaskBit != 1)
@@ -133,17 +134,17 @@ namespace SpiderPositionFix.Patches
                     instanceData.offsetSpeed = 0;
                     __instance.agent.speed = instanceData.originalSpeed;
                     if (debug) InitialScript.Logger.LogDebug("Returning original speed");
-                }
+                }*/
                 if (__instance.agent.isOnOffMeshLink)
                 {
                     instanceData.applySpeedSlowdown = true;
                     __instance.agent.speed = instanceData.originalSpeed / 1.15f;
                     if (debug) InitialScript.Logger.LogDebug("On offMeshLink. Cutting speed");
-                }*/
-                if (!__instance.agent.isOnOffMeshLink)
+                }
+                if (!__instance.agent.isOnOffMeshLink && Vector3.Distance(__instance.transform.position, __instance.meshContainer.position) <= 0.25f)
                 {
                     __instance.meshContainerPosition = __instance.transform.position;
-                    __instance.meshContainer.transform.position = __instance.transform.position;
+                    __instance.meshContainer.position = __instance.transform.position;
                 }
             }
             else
@@ -155,10 +156,14 @@ namespace SpiderPositionFix.Patches
                     __instance.agent.speed = instanceData.originalSpeed;
                     if (debug) InitialScript.Logger.LogDebug("/2/ Returning original speed");
                 }*/
-                if (__instance.onWall && (__instance.meshContainerTarget == __instance.floorPosition || __instance.meshContainerTarget == __instance.wallPosition))
+                if (__instance.onWall && (__instance.meshContainerTarget == __instance.floorPosition || __instance.meshContainerTarget == __instance.wallPosition) || Vector3.Distance(__instance.transform.position, __instance.meshContainer.position) > 0.25f)
                 {
                     __instance.agent.speed = 0f;
                 }
+            }
+            if (__instance.reachedWallPosition)
+            {
+                spiderData[__instance].reachTheWallFail = false;
             }
         }
         [HarmonyPatch("LateUpdate")]
@@ -169,16 +174,23 @@ namespace SpiderPositionFix.Patches
             if (__instance.IsOwner)
             {
                 if (instanceData.startPatch != true) return;
+
+                if (__instance.agent.velocity.y > 0.6f || __instance.agent.velocity.y < -0.6f)
+                {
+                    if (debug) InitialScript.Logger.LogMessage($"Vertical velocity: {__instance.agent.velocity.y}");
+                    __instance.meshContainerTargetRotation = Quaternion.LookRotation(__instance.agent.velocity, Vector3.up);
+                }
+
                 if (!__instance.onWall)
                 {
-                    if (/*Vector3.Distance(__instance.meshContainer.position, __instance.transform.position) > 0.8f || */Mathf.Abs(__instance.meshContainer.position.y - __instance.transform.position.y) > 0.25f)
+                    /*if (/*Vector3.Distance(__instance.meshContainer.position, __instance.transform.position) > 0.8f || Mathf.Abs(__instance.meshContainer.position.y - __instance.transform.position.y) > 0.25f)
                     {
                         string text = "null";
-                        /*if (Vector3.Distance(__instance.meshContainer.position, __instance.transform.position) > 0.8f)
+                        if (Vector3.Distance(__instance.meshContainer.position, __instance.transform.position) > 0.8f)
                         {
                             text = "Triggered by distance: " + Vector3.Distance(__instance.meshContainer.position, __instance.transform.position);
                         }
-                        else */if (Mathf.Abs(__instance.meshContainer.position.y - __instance.transform.position.y) > 0.25f)
+                        else if (Mathf.Abs(__instance.meshContainer.position.y - __instance.transform.position.y) > 0.25f)
                         {
                             text = "Triggered by height projection: " + Mathf.Abs(__instance.meshContainer.position.y - __instance.transform.position.y);
                         }
@@ -189,21 +201,28 @@ namespace SpiderPositionFix.Patches
                         if (debug) InitialScript.Logger.LogDebug(text);
                         __instance.meshContainerTarget = __instance.agent.transform.position;
 
-                    }
+                    }*/
                     if (__instance.agent.isOnOffMeshLink)
                     {
-                        /*__instance.meshContainer.position = Vector3.Lerp(__instance.meshContainer.position, __instance.agent.nextPosition, Distance(Vector3.Distance(__instance.meshContainer.position, __instance.transform.position), 0.5f));
-                        __instance.meshContainerPosition = __instance.meshContainer.position;*/
+                        __instance.meshContainer.position = Vector3.Lerp(__instance.meshContainer.position, __instance.agent.nextPosition, Distance(Vector3.Distance(__instance.meshContainer.position, __instance.transform.position), 0.5f));
+                        __instance.meshContainerPosition = __instance.meshContainer.position;
 
                         __instance.meshContainerTargetRotation = Quaternion.Lerp(__instance.meshContainer.rotation, Quaternion.LookRotation(__instance.agent.currentOffMeshLinkData.endPos - __instance.meshContainer.position, Vector3.up), 0.75f);
                     }
-                    else if (Mathf.Abs(__instance.meshContainer.position.y - __instance.transform.position.y) > 0.25f)
+                    /*else if (Mathf.Abs(__instance.meshContainer.position.y - __instance.transform.position.y) > 0.25f)
                     {
                         __instance.meshContainerTargetRotation = Quaternion.LookRotation(__instance.agent.transform.position - __instance.meshContainer.position, Vector3.up);
+                    }*/
+
+                    if (Vector3.Distance(__instance.transform.position, __instance.meshContainer.position) > 0.25f)
+                    {
+                        __instance.meshContainerTarget = __instance.transform.position;
                     }
+
+                    __instance.refVel = __instance.agent.velocity;
                 }
 
-               /* if (!__instance.lookingForWallPosition && __instance.onWall && __instance.movingTowardsTargetPlayer)
+               /*if (!__instance.lookingForWallPosition && __instance.onWall && __instance.movingTowardsTargetPlayer)
                 {
                     if (__instance.onWall && Vector3.Distance(__instance.meshContainer.position, __instance.transform.position) < 1f || instanceData.returningFromWallState > 6f)
                     {
@@ -219,23 +238,25 @@ namespace SpiderPositionFix.Patches
         [HarmonyPostfix]
         static void DoAIIntervalPostfix(SandSpiderAI __instance)
         {
-            /*if (__instance.lookingForWallPosition && __instance.gotWallPositionInLOS && !__instance.reachedWallPosition)
+            if (!__instance.IsOwner) return;
+            if (__instance.lookingForWallPosition && __instance.gotWallPositionInLOS && !__instance.reachedWallPosition)
             {
                 spiderData[__instance].reachedWallTimer += __instance.AIIntervalTime;
             }
-            if (spiderData[__instance].reachedWallTimer > 10f)
+            if (spiderData[__instance].reachedWallTimer > 10f && !spiderData[__instance].reachTheWallFail)
             {
-                InitialScript.Logger.LogWarning("Failed to reach wall in time. Recalculating...");
+                InitialScript.Logger.LogWarning("Failed to reach wall in time.");
                 __instance.gotWallPositionInLOS = __instance.GetWallPositionForSpiderMesh();
                 spiderData[__instance].reachedWallTimer = 0f;
-            }*/
+                spiderData[__instance].reachTheWallFail = true;
+            }
         }
 
         [HarmonyPatch("CalculateMeshMovement")]
         [HarmonyPrefix]
         static bool MeshMovementPatch(SandSpiderAI __instance)
         {
-            if (__instance.lookingForWallPosition && __instance.gotWallPositionInLOS && __instance.IsOwner)
+            if (__instance.lookingForWallPosition && __instance.gotWallPositionInLOS)
             {
                 if (!__instance.onWall)
                 {
@@ -263,8 +284,8 @@ namespace SpiderPositionFix.Patches
                     }
                     __instance.SetDestinationToPosition(__instance.floorPosition);
                     __instance.CalculateSpiderPathToPosition();
-                    __instance.navigateToPositionTarget = __instance.transform.position + Vector3.Normalize(__instance.agent.desiredVelocity) * 2f;
-                    if (distanceFromFloorPosition < 1.7f && distanceFromFloorPositionMesh < 1.7f)
+                    //__instance.navigateToPositionTarget = __instance.transform.position + Vector3.Normalize(__instance.agent.desiredVelocity) * 2f;
+                    if (distanceFromFloorPosition < 0.7f && distanceFromFloorPositionMesh < 0.7f)
                     {
                         __instance.onWall = true;
                         spiderData[__instance].delayTimes = 0;
@@ -300,7 +321,7 @@ namespace SpiderPositionFix.Patches
                 if (debug) InitialScript.Logger.LogDebug("Spider: Toggled mask bit to " + bit);
             }
         }
-
+        /*
         [HarmonyPatch("TriggerChaseWithPlayer")]
         [HarmonyPrefix]
         static void TriggerChaseWithPlayerPrefix(SandSpiderAI __instance)
@@ -313,6 +334,6 @@ namespace SpiderPositionFix.Patches
                     __instance.agent.Warp(__instance.floorPosition);
                 }
             }
-        }
+        }*/
     }
 }

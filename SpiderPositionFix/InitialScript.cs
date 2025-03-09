@@ -17,7 +17,6 @@ namespace SpiderPositionFix
         internal new static ManualLogSource Logger { get; private set; } = null!;
         internal static Harmony? Harmony { get; set; }
         internal static ConfigClass configSettings { get; set; } = null;
-        internal static bool isStarlancePresent = BepInEx.Bootstrap.Chainloader.PluginInfos.ContainsKey("AudioKnight-StarlancerEnemyEscape");
         public static AssetBundle SpiderAssets;
         private void Awake()
         {
@@ -40,11 +39,6 @@ namespace SpiderPositionFix
         internal static void Patch()
         {
             Harmony ??= new Harmony(MyPluginInfo.PLUGIN_GUID);
-
-            if (isStarlancePresent)
-            {
-                Logger.LogInfo("Found StarlanceEnemyEscape in Chainloader");
-            }
 
             Logger.LogDebug("Patching spider position fix...");
 

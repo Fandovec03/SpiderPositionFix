@@ -4,7 +4,7 @@ Fixes issues with the spider mesh getting stuck and position desync between the 
 Animation fixes are client-sided<br>
 <br>
 List of fixes and improvements: <br>
-- Multiple methods addressing the desync between MeshContainer and Agent
+- Fixes meshContainer to the agent
 - Improvements to the movement
 - Fixed idle animation offset
 - Spider now reliably travel OffMeshLinks
