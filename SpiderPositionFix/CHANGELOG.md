@@ -1,3 +1,10 @@
+### 1.4.0
+- Improved movement and turning
+
+##### Improved wall climbing system
+- Added validation and recasting for floor position
+	- Fixes spider failing to climb wall
+
 ### 1.3.1
 - Slightly changed how the fix is applied
 - Improvements to overall movement

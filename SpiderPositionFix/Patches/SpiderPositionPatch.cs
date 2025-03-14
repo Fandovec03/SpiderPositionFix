@@ -21,12 +21,14 @@ namespace SpiderPositionFix.Patches
         public int delayTimes = 0;
         public bool reachTheWallFail = false;
         public Dictionary<int, GameObject> debugObjects = [];
+        public float time = 0.2f;
     }
 
     [HarmonyPatch(typeof(SandSpiderAI))]
     public class SpiderPositionPatch
     {
-        static bool debug = InitialScript.configSettings.debug.Value;
+        static bool debugLogs = InitialScript.configSettings.debugLogs.Value;
+        static bool debugVisals = InitialScript.configSettings.debugVisuals.Value;
         static Dictionary<SandSpiderAI, spiderPositionData> spiderData = [];
         static GameObject ballPrefab;
         static Material whiteBall;
@@ -44,12 +46,15 @@ namespace SpiderPositionFix.Patches
                 try
                 {
                     AnimatorOverrideController controller = InitialScript.SpiderAssets.LoadAsset<AnimatorOverrideController>("Assets/LethalCompany/CustomAnims/SandSpider/Spider Anim Override.overrideController");
-                    //ballPrefab = InitialScript.SpiderAssets.LoadAsset<GameObject>("Assets/LethalCompany/CustomAnims/SandSpider/WhiteBall.prefab");
-                    //whiteBall = InitialScript.SpiderAssets.LoadAsset<Material>("Assets/LethalCompany/CustomAnims/SandSpider/WhiteBallMat.mat");
-                    //redBall = InitialScript.SpiderAssets.LoadAsset<Material>("Assets/LethalCompany/CustomAnims/SandSpider/RedBallMat.mat");
-                    //blueBall = InitialScript.SpiderAssets.LoadAsset<Material>("Assets/LethalCompany/CustomAnims/SandSpider/BlueBallMat.mat");
-                    //greenBall = InitialScript.SpiderAssets.LoadAsset<Material>("Assets/LethalCompany/CustomAnims/SandSpider/GreenBallMat.mat");
-                    //yellowBall = InitialScript.SpiderAssets.LoadAsset<Material>("Assets/LethalCompany/CustomAnims/SandSpider/YellowBallMat.mat");
+                    if (debugVisals)
+                    {
+                    ballPrefab = InitialScript.SpiderAssets.LoadAsset<GameObject>("Assets/LethalCompany/CustomAnims/SandSpider/WhiteBall.prefab");
+                    whiteBall = InitialScript.SpiderAssets.LoadAsset<Material>("Assets/LethalCompany/CustomAnims/SandSpider/WhiteBallMat.mat");
+                    redBall = InitialScript.SpiderAssets.LoadAsset<Material>("Assets/LethalCompany/CustomAnims/SandSpider/RedBallMat.mat");
+                    blueBall = InitialScript.SpiderAssets.LoadAsset<Material>("Assets/LethalCompany/CustomAnims/SandSpider/BlueBallMat.mat");
+                    greenBall = InitialScript.SpiderAssets.LoadAsset<Material>("Assets/LethalCompany/CustomAnims/SandSpider/GreenBallMat.mat");
+                    yellowBall = InitialScript.SpiderAssets.LoadAsset<Material>("Assets/LethalCompany/CustomAnims/SandSpider/YellowBallMat.mat");
+                    }
                     __instance.creatureAnimator.runtimeAnimatorController = controller;
                 }
                 catch
@@ -70,16 +75,20 @@ namespace SpiderPositionFix.Patches
         {
             spiderPositionData instanceData = spiderData[__instance];
 
+            InitialScript.Logger.LogMessage($"refVel: {__instance.refVel}, refVel.magnitude: {__instance.refVel.magnitude}, test: {__instance.agent.velocity * -1}");
+
             if (__instance.IsOwner)
             {
-                if (__instance.reachedWallPosition && __instance.agent.enabled == true)
+                if (instanceData.time > 0f) instanceData.time -= Time.deltaTime;
+
+                if (__instance.reachedWallPosition && __instance.agent.enabled == true && __instance.agent.avoidancePriority == 25)
                 {
                     __instance.agent.avoidancePriority = 99;
                     __instance.agent.enabled = false;
                     //__instance.agent.Warp(__instance.meshContainer.transform.position);
                 }
 
-                if (__instance.agent.enabled == false && (!__instance.onWall || __instance.waitOnWallTimer <= 0))
+                if (__instance.agent.enabled == false && (!__instance.onWall || __instance.waitOnWallTimer <= 0) && __instance.agent.avoidancePriority == 99)
                 {
                     __instance.agent.avoidancePriority = 25;
                     __instance.agent.enabled = true;
@@ -89,6 +98,10 @@ namespace SpiderPositionFix.Patches
                     }
                 }
             }
+            else
+            {
+                if (instanceData.time <= 0f) instanceData.time = 0f;
+            }
         }
 
 
@@ -97,6 +110,7 @@ namespace SpiderPositionFix.Patches
         static void UpdatePostfix(SandSpiderAI __instance)
         {
             spiderPositionData instanceData = spiderData[__instance];
+
             if (!__instance.IsOwner) return;
 
             if (InitialScript.configSettings.applyMask.Value == true)
@@ -149,7 +163,7 @@ namespace SpiderPositionFix.Patches
                 if (__instance.agent.isOnOffMeshLink)
                 {
                     __instance.agent.speed = instanceData.originalSpeed / 1.15f;
-                    if (debug) InitialScript.Logger.LogDebug("On offMeshLink. Cutting speed");
+                    if (debugLogs) InitialScript.Logger.LogDebug("On offMeshLink. Cutting speed");
                 }
                 if (!__instance.agent.isOnOffMeshLink && !__instance.onWall)
                 {
@@ -177,6 +191,8 @@ namespace SpiderPositionFix.Patches
             {
                 spiderData[__instance].reachTheWallFail = false;
             }
+
+            __instance.SyncMeshContainerPositionToClients();
         }
 
         [HarmonyPatch("LateUpdate")]
@@ -215,7 +231,7 @@ namespace SpiderPositionFix.Patches
                         __instance.meshContainerTarget = __instance.agent.transform.position;
 
                     }*/
-                    if (__instance.agent.isOnOffMeshLink)
+                    /*if (__instance.agent.isOnOffMeshLink)
                     {
                         __instance.meshContainer.position = Vector3.Lerp(__instance.meshContainer.position, __instance.agent.nextPosition, Distance(Vector3.Distance(__instance.meshContainer.position, __instance.transform.position), 0.5f));
                         __instance.meshContainerPosition = __instance.meshContainer.position;
@@ -224,22 +240,36 @@ namespace SpiderPositionFix.Patches
                     }
                     else
                     {
-                        if (Mathf.Abs(__instance.agent.velocity.y) > 0.6f) __instance.meshContainerTargetRotation = Quaternion.LookRotation(__instance.agent.velocity * Time.deltaTime, Vector3.up);
+                        if (__instance.agent.velocity.y > 0.6f && !__instance.overrideSpiderLookRotation) __instance.meshContainerTargetRotation = Quaternion.LookRotation(__instance.agent.velocity, Vector3.up);
                         //__instance.meshContainerTargetRotation.SetLookRotation();
-                    }
+                    }*/
                     /*else if (Mathf.Abs(__instance.meshContainer.position.y - __instance.transform.position.y) > 0.25f)
                     {
                         __instance.meshContainerTargetRotation = Quaternion.LookRotation(__instance.agent.transform.position - __instance.meshContainer.position, Vector3.up);
                     }*/
 
-                    if (Vector3.Distance(__instance.transform.position, __instance.meshContainer.position) > 0.25f && !__instance.onWall)
+                    /*if (Vector3.Distance(__instance.transform.position, __instance.meshContainer.position) > 0.25f && !__instance.onWall)
                     {
                         __instance.meshContainerTarget = __instance.transform.position;
-                    }
+                    }*/
 
                     //InitialScript.Logger.LogInfo($"original: {__instance.refVel.magnitude}, agent velocity: {__instance.agent.velocity.magnitude}, new: {(__instance.agent.velocity * Time.deltaTime).magnitude}");
 
                     //__instance.refVel = __instance.agent.velocity * Time.deltaTime;
+                    /*if (__instance.agent.isOnOffMeshLink)
+                    {
+                        __instance.meshContainer.position = Vector3.Lerp(__instance.meshContainer.position, __instance.agent.nextPosition, Distance(Vector3.Distance(__instance.meshContainer.position, __instance.transform.position), 0.5f));
+                        __instance.meshContainerPosition = __instance.meshContainer.position;
+
+                        __instance.meshContainerTargetRotation = Quaternion.Lerp(__instance.meshContainer.rotation, Quaternion.LookRotation(__instance.agent.currentOffMeshLinkData.endPos - __instance.meshContainer.position, Vector3.up), 0.75f);
+                    }
+                    else
+                    {
+                        if (instanceData.time <= 0f) { InitialScript.Logger.LogInfo(__instance.agent.velocity.magnitude); instanceData.time = 0.4f; }
+
+                        if (__instance.agent.velocity.magnitude > 3f && !__instance.overrideSpiderLookRotation) __instance.meshContainerTargetRotation = Quaternion.LookRotation(__instance.agent.velocity, Vector3.up);
+                        //__instance.meshContainerTargetRotation.SetLookRotation();
+                    }*/
                 }
 
                 /*if (!__instance.lookingForWallPosition && __instance.onWall && __instance.movingTowardsTargetPlayer)
@@ -268,10 +298,10 @@ namespace SpiderPositionFix.Patches
 
                     if (spiderData[__instance].delayTimer > 0.4f)
                     {
-                        if (debug)
+                        if (debugLogs)
                         {
-                            InitialScript.Logger.LogInfo("distanceFromFloorPosition: " + distanceFromFloorPosition);
-                            InitialScript.Logger.LogInfo("distanceFromFloorPositionMesh: " + distanceFromFloorPositionMesh);
+                            InitialScript.Logger.LogDebug("distanceFromFloorPosition: " + distanceFromFloorPosition);
+                            InitialScript.Logger.LogDebug("distanceFromFloorPositionMesh: " + distanceFromFloorPositionMesh);
                         }
                         spiderData[__instance].delayTimer = 0f;
                         spiderData[__instance].delayTimes++;
@@ -279,6 +309,7 @@ namespace SpiderPositionFix.Patches
                         if (spiderData[__instance].delayTimes >= 40 && __instance.floorPosition != Vector3.zero)
                         {
                             InitialScript.Logger.LogWarning(__instance + ", ID " + __instance.NetworkObjectId + " failing to climb walls within set timer!");
+                            spiderData[__instance].delayTimes = 0;
                         }
                     }
                     else
@@ -288,7 +319,7 @@ namespace SpiderPositionFix.Patches
                     __instance.SetDestinationToPosition(__instance.floorPosition);
                     __instance.CalculateSpiderPathToPosition();
                     //__instance.navigateToPositionTarget = __instance.transform.position + Vector3.Normalize(__instance.agent.desiredVelocity) * 2f;
-                    if (distanceFromFloorPosition < 0.7f && distanceFromFloorPositionMesh < 0.7f && __instance.floorPosition != Vector3.zero)
+                    if (distanceFromFloorPosition < 0.7f && distanceFromFloorPositionMesh < 0.7f)
                     {
                         __instance.onWall = true;
                         //__instance.meshContainerTarget = __instance.wallPosition;
@@ -300,6 +331,34 @@ namespace SpiderPositionFix.Patches
             }
             return true;
         }
+
+        [HarmonyPatch("CalculateMeshMovement")]
+        [HarmonyPostfix]
+        static void MeshMovementPostfixPatch(SandSpiderAI __instance)
+        {
+            if (!__instance.onWall)
+            {
+                if (__instance.agent.isOnOffMeshLink)
+                {
+                    __instance.meshContainer.position = Vector3.Lerp(__instance.meshContainer.position, __instance.agent.nextPosition, Distance(Vector3.Distance(__instance.meshContainer.position, __instance.transform.position), 0.5f));
+                    __instance.meshContainerPosition = __instance.meshContainer.position;
+
+                    __instance.meshContainerTargetRotation = Quaternion.Lerp(__instance.meshContainer.rotation, Quaternion.LookRotation(__instance.agent.currentOffMeshLinkData.endPos - __instance.meshContainer.position, Vector3.up), 0.75f);
+                }
+                else
+                {
+                    if (spiderData[__instance].time <= 0f && debugLogs) { InitialScript.Logger.LogDebug(__instance.agent.velocity.magnitude); spiderData[__instance].time = 0.4f; }
+
+                    if (__instance.agent.velocity.magnitude > 2f && !__instance.overrideSpiderLookRotation)
+                    {
+                        __instance.meshContainerTargetRotation = Quaternion.LookRotation(__instance.agent.velocity * Time.deltaTime, Vector3.up);
+                    }
+                    //__instance.refVel = __instance.agent.velocity * (-1) * Time.deltaTime;
+                    //__instance.meshContainerTargetRotation.SetLookRotation();
+                }
+            }
+        }
+
 
         static float Distance(float distance, float time)
         {
@@ -322,7 +381,7 @@ namespace SpiderPositionFix.Patches
                     bit = 0;
                 }
 
-                if (debug) InitialScript.Logger.LogDebug("Spider: Toggled mask bit to " + bit);
+                if (debugLogs) InitialScript.Logger.LogDebug("Spider: Toggled mask bit to " + bit);
             }
         }
         /*
@@ -341,25 +400,61 @@ namespace SpiderPositionFix.Patches
         }*/
 
         [HarmonyPatch("GetWallPositionForSpiderMesh")]
+        [HarmonyPrefix]
+        static void GetWallPositionForSpiderMeshPrefix(SandSpiderAI __instance)
+        {
+            __instance.floorPosition = Vector3.zero;
+        }
+
+        [HarmonyPatch("GetWallPositionForSpiderMesh")]
         [HarmonyPostfix]
         static void GetWallPositionForSpiderMeshPatch(SandSpiderAI __instance, ref bool __result)
         {
             spiderPositionData instanceData = spiderData[__instance];
+            NavMeshHit NMHit = new NavMeshHit();
+            Vector3 normalPosition = __instance.wallPosition + __instance.wallNormal;
+            Vector3 normalProjection = new Vector3(normalPosition.x, __instance.wallPosition.y, normalPosition.z);
+            NavMeshPath pathCheck = new NavMeshPath();
 
-            if (__instance.floorPosition == Vector3.zero)
+
+            if (__instance.floorPosition == Vector3.zero || RoundManager.Instance.GetNavMeshPosition(__instance.floorPosition, NMHit, 0.7f) == __instance.floorPosition || !__instance.agent.CalculatePath(__instance.floorPosition, pathCheck) || pathCheck.status == NavMeshPathStatus.PathPartial || pathCheck.status == NavMeshPathStatus.PathInvalid)
             {
-                InitialScript.Logger.LogWarning($"failed to get position for floorPosition.");
-                __result = false;
-            }
+                InitialScript.Logger.LogWarning($"failed to get valid position for floorPosition.");
 
-            /*foreach (GameObject i in instanceData.debugObjects.Values.ToList())
+                Vector3 customWallPos = Vector3.zero;
+
+                for (int i = 0; i < 4; i++)
+                {
+                    customWallPos = Vector3.Lerp(__instance.wallPosition, normalProjection, (float)(i + 1) / 4);
+                    Vector3 newFloorPosition = Vector3.zero;
+                    RaycastHit rcHit = new RaycastHit();
+                    if (Physics.Raycast(customWallPos, Vector3.down, out rcHit, 20f, StartOfRound.Instance.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore))
+                    {
+                        newFloorPosition = rcHit.point;
+                    }
+
+                    if (newFloorPosition == Vector3.zero || RoundManager.Instance.GetNavMeshPosition(newFloorPosition, NMHit, 0.7f) == newFloorPosition || !__instance.agent.CalculatePath(newFloorPosition, pathCheck) || pathCheck.status == NavMeshPathStatus.PathPartial || pathCheck.status == NavMeshPathStatus.PathInvalid)
+                    {
+                        __result = false;
+                        continue;
+                    }
+                    __instance.floorPosition = newFloorPosition;
+                    __result = true;
+                    InitialScript.Logger.LogMessage($"Assigned new floor position.");
+                    break;
+                }
+            }
+            pathCheck.ClearCorners();
+            if (!debugVisals) return;
+
+            foreach (GameObject i in instanceData.debugObjects.Values.ToList())
             {
                 GameObject.Destroy(i);
             }
             instanceData.debugObjects.Clear();
 
-            Dictionary<int, Vector3> wallVectors = new Dictionary<int, Vector3>();
-
+            Dictionary<int, List<Vector3>> wallVectors = new Dictionary<int, List<Vector3>>();
+            LineRenderer renderedLine;
             RaycastHit rayHitCustom;
             GameObject spawningPrefab = ballPrefab;
 
@@ -368,53 +463,101 @@ namespace SpiderPositionFix.Patches
             //if (__instance.wallPosition != null)
             //{
             Vector3 projection = new Vector3(__instance.meshContainer.position.x, __instance.wallPosition.y, __instance.meshContainer.position.z);
-            spawningPrefab.GetComponent<MeshRenderer>().material = redBall;
-            spawningPrefab.GetComponent<ScanNodeProperties>().headerText = $"projectedWallPosition {projection}";
-            InitialScript.Logger.LogInfo("projected wallPosition");
+            spawningPrefab.GetComponentInChildren<MeshRenderer>().material = redBall;
+            spawningPrefab.GetComponent<ScanNodeProperties>().headerText = $"projected WallPosition";
+            float projectionDistance = Vector3.Distance(__instance.meshContainer.position, projection);
+            int splitNum = (int)MathF.Round(projectionDistance * 2, 0);
+            if (debugLogs) InitialScript.Logger.LogInfo($"Rounded up {projectionDistance} to {splitNum}");   
+            renderedLine = spawningPrefab.GetComponentInChildren<LineRenderer>(); renderedLine.material = redBall; renderedLine.useWorldSpace = true;
+
+            //SetRenderedLinePoints([projection,__instance.wallPosition],renderedLine);
+            if (debugLogs) InitialScript.Logger.LogInfo("projected wallPosition");
             instanceData.debugObjects.Add(-1,UnityEngine.Object.Instantiate(spawningPrefab, projection, Quaternion.identity));
-            InitialScript.Logger.LogInfo($"instantiated projectedWallPosition {projection}");
+            if (debugLogs) InitialScript.Logger.LogInfo($"instantiated projectedWallPosition {projection}");
 
-            wallVectors.Add(0,__instance.meshContainer.position);
-            wallVectors.Add(5,__instance.wallPosition);
-            wallVectors.Add(6, __instance.floorPosition);
+            Vector3 projectedMeshPosition = Vector3.Project(__instance.meshContainer.position - __instance.wallPosition,normalProjection - __instance.wallPosition) + __instance.wallPosition;
+            Vector3 CalculaterMeshPosition = new Vector3(projectedMeshPosition.x,__instance.meshContainer.position.y, projectedMeshPosition.z);
 
-            for (int i = 1; i < 5; i++)
+
+            wallVectors.Add(0,[__instance.meshContainer.position]);
+            wallVectors.Add(1,[__instance.wallPosition, __instance.transform.position]);
+            wallVectors.Add(2, [__instance.floorPosition, __instance.wallPosition]);
+            wallVectors.Add(3, [normalProjection, __instance.wallPosition]);
+            wallVectors.Add(4, [projectedMeshPosition, __instance.wallPosition]);
+
+            for (int i = 1; i < splitNum; i++)
             {
-                float t = (float)i / 5;
+                float t = (float)i / splitNum;
 
-                Vector3 lerpedVector = Vector3.Lerp(__instance.meshContainer.position, projection, t);
+                Vector3 lerpedVector = Vector3.Lerp(CalculaterMeshPosition, projectedMeshPosition, t);
                 //InitialScript.Logger.LogInfo($"calculated lerp {Vector3.Lerp(__instance.meshContainer.position, projection, t)}");
                 //InitialScript.Logger.LogInfo($"projected lerpedVector {lerpedVector}, container position: {__instance.meshContainer.position}, projection: {projection}, t: {t}");
                 Vector3 projectedWallPos = new Vector3(__instance.wallPosition.x, lerpedVector.y, __instance.wallPosition.z);
 
-                spawningPrefab.GetComponent<MeshRenderer>().material = whiteBall;
-                Physics.Raycast(lerpedVector, projectedWallPos - lerpedVector, out rayHitCustom, 7f, StartOfRound.Instance.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore);
+                spawningPrefab.GetComponentInChildren<MeshRenderer>().material = whiteBall;
+                Ray cRay = new Ray(lerpedVector, projectedWallPos - lerpedVector);
+                Physics.Raycast(cRay, out rayHitCustom, 7f, StartOfRound.Instance.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore);
                 spawningPrefab.GetComponent<ScanNodeProperties>().headerText = $"Generated lerpedVector {i}";
                 //UnityEngine.Object.Instantiate(spawningPrefab, lerpedVector, Quaternion.identity);
-                wallVectors.Add(i, rayHitCustom.point);
+                wallVectors.Add(4 + i, [cRay.GetPoint(rayHitCustom.distance - 0.2f), lerpedVector]);
 
-                InitialScript.Logger.LogInfo($"set wallVector[{i}] to {wallVectors[i]}");
+                if (debugLogs) InitialScript.Logger.LogInfo($"set wallVector[{i}] to {wallVectors[i][0]}");
             }
 
-            for (int i = 0;i < 7;i++)
+            for (int i = 0;i < 4 + splitNum;i++)
             {
                 InitialScript.Logger.LogInfo($"Processing wallVector[{i}] |{i}|");
                 try
                 {
-                    if (i == 0) { spawningPrefab.GetComponent<MeshRenderer>().material = greenBall; spawningPrefab.GetComponent<ScanNodeProperties>().headerText = "meshContainer position"; }
-                    else if (i == 5) { spawningPrefab.GetComponent<MeshRenderer>().material = blueBall; spawningPrefab.GetComponent<ScanNodeProperties>().headerText = "wall position"; }
-                    else if (i == 6) { spawningPrefab.GetComponent<MeshRenderer>().material = yellowBall; spawningPrefab.GetComponent<ScanNodeProperties>().headerText = "floor position"; }
-                    else { spawningPrefab.GetComponent<MeshRenderer>().material = whiteBall; spawningPrefab.GetComponent<ScanNodeProperties>().headerText = $"Generated position {i}"; }
+                    bool validWallVector = !Physics.Linecast(__instance.floorPosition, wallVectors[i][0], StartOfRound.Instance.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore) || !Physics.Linecast(normalProjection, wallVectors[i][0], StartOfRound.Instance.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore);
 
-                    instanceData.debugObjects.Add(i,UnityEngine.Object.Instantiate(spawningPrefab, wallVectors[i], Quaternion.identity));
-                    InitialScript.Logger.LogInfo($"Successfully spawned ball at {wallVectors[i]} |{i}|");
+                    if (i == 0) { spawningPrefab.GetComponentInChildren<MeshRenderer>().material = greenBall; spawningPrefab.GetComponent<ScanNodeProperties>().headerText = "meshContainer position"; }
+                    else if (i == 1) { spawningPrefab.GetComponentInChildren<MeshRenderer>().material = blueBall; spawningPrefab.GetComponent<ScanNodeProperties>().headerText = "wall position"; }
+                    else if (i == 2) { spawningPrefab.GetComponentInChildren<MeshRenderer>().material = yellowBall; spawningPrefab.GetComponent<ScanNodeProperties>().headerText = "floor position"; }
+                    else if (i == 3) { spawningPrefab.GetComponentInChildren<MeshRenderer>().material = blueBall; spawningPrefab.GetComponent<ScanNodeProperties>().headerText = "projected normal position"; }
+                    else if (i == 4) { spawningPrefab.GetComponentInChildren<MeshRenderer>().material = blueBall; spawningPrefab.GetComponent<ScanNodeProperties>().headerText = "projected meshContainer position on Normal"; }
+                    else { spawningPrefab.GetComponentInChildren<MeshRenderer>().material = whiteBall; spawningPrefab.GetComponent<ScanNodeProperties>().headerText = $"Generated position {i}"; }
+
+                    instanceData.debugObjects.Add(i,UnityEngine.Object.Instantiate(spawningPrefab, wallVectors[i][0], Quaternion.identity));
+                    if (debugLogs) InitialScript.Logger.LogInfo($"Successfully spawned ball at {wallVectors[i][0]} |{i}|");
+
+                    if (i > 4 && validWallVector)
+                    {
+                        spawningPrefab.GetComponentInChildren<MeshRenderer>().material = yellowBall;
+                    }
+
+                    if (wallVectors[i].Count > 1)
+                    {
+                        if (debugLogs) InitialScript.Logger.LogInfo("Found multiple vectors");
+
+                        try {
+                            renderedLine = spawningPrefab.GetComponentInChildren<LineRenderer>(); renderedLine.material = spawningPrefab.GetComponentInChildren<MeshRenderer>().material; renderedLine.useWorldSpace = true;
+                            SetRenderedLinePoints(wallVectors[i].ToArray(), renderedLine);
+                        }
+                        catch (Exception e) {
+                            InitialScript.Logger.LogError($"failed to spawn a ray |{i}|");
+                            InitialScript.Logger.LogError(e);
+                        }
+                    }
                 }
                 catch (Exception e)
                 {
                     InitialScript.Logger.LogError($"failed to spawn a ball |{i}|");
                     InitialScript.Logger.LogError(e);
                 }
-            }*/
+            }
+        }
+
+        public static void SetRenderedLinePoints(Vector3[] positions, LineRenderer lr)
+        {
+            lr.positionCount = positions.Length;
+
+            for (int i = 0; i < lr.positionCount; i++)
+            {
+                if (lr.positionCount < 2) break;
+
+                lr.SetPosition(i, positions[i]);
+            }
         }
     }
 }

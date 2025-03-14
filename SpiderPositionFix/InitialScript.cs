@@ -61,7 +61,8 @@ namespace SpiderPositionFix
     {
         public readonly ConfigEntry<bool> applyMask;
         //debug
-        public readonly ConfigEntry<bool> debug;
+        public readonly ConfigEntry<bool> debugLogs;
+        public readonly ConfigEntry<bool> debugVisuals;
 
         public ConfigClass(ConfigFile cfg)
         {
@@ -69,7 +70,8 @@ namespace SpiderPositionFix
             {
                 applyMask = cfg.Bind("Settings", "Apply changes to agent areaMask", true, "Apply the changes made to the spider agent areaMask. This will affect the pathfinding over offMeshLinks");
                 //debug
-                debug = cfg.Bind("Debug", "Debug logs", false, "Enable debug logs");
+                debugLogs = cfg.Bind("Debug", "Debug logs", false, "Enable debug logs");
+                debugVisuals = cfg.Bind("Debug", "Debug visuals", false, "Enable debug visual tools");
             }
             ClearOrphanedEntries(cfg);
             cfg.Save();
