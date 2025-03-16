@@ -71,7 +71,7 @@ namespace SpiderPositionFix
                 applyMask = cfg.Bind("Settings", "Apply changes to agent areaMask", true, "Apply the changes made to the spider agent areaMask. This will affect the pathfinding over offMeshLinks");
                 //debug
                 debugLogs = cfg.Bind("Debug", "Debug logs", false, "Enable debug logs");
-                debugVisuals = cfg.Bind("Debug", "Debug visuals", false, "Enable debug visual tools");
+                debugVisuals = cfg.Bind("Debug", "Debug visuals", false, "Enable visual debug tools.");
             }
             ClearOrphanedEntries(cfg);
             cfg.Save();

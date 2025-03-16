@@ -1,9 +1,15 @@
 ### 1.4.0
 - Improved movement and turning
-
+- Logs spam less
+- Avoidance priority decreases to lowest possible when spider is on wall.
+ 
 ##### Improved wall climbing system
 - Added validation and recasting for floor position
 	- Fixes spider failing to climb wall
+
+##### Known issues
+- Spider does not move the same pace between the client and server
+	- Likely a vanilla LAN bug.
 
 ### 1.3.1
 - Slightly changed how the fix is applied
