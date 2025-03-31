@@ -5,6 +5,7 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using UnityEngine;
 using UnityEngine.AI;
+using UnityEngine.ProBuilder;
 using UnityEngine.ProBuilder.Shapes;
 using static UnityEngine.MeshSubsetCombineUtility;
 
@@ -23,6 +24,8 @@ namespace SpiderPositionFix.Patches
         public bool reachTheWallFail = false;
         public Dictionary<int, GameObject> debugObjects = [];
         public float time = 0.2f;
+        public Vector3 originalWallPosition = Vector3.zero;
+        public float invalidPositionTimer = 0f;
     }
 
     [HarmonyPatch(typeof(SandSpiderAI))]
@@ -38,6 +41,21 @@ namespace SpiderPositionFix.Patches
         static Material greenBall;
         static Material yellowBall;
 
+        /*
+        [HarmonyPatch(typeof(SandSpiderAI), "GetWallPositionForSpiderMesh")]
+        public static class SandSpiderGetWallPosTPatch
+        {
+            static IEnumerable<CodeInstruction> Transpiller(IEnumerable<CodeInstruction> instructions)
+            {
+                var codeMatcher = new CodeMatcher(instructions);
+
+                codeMatcher.MatchForward()
+    
+
+            return codes.AsEnumerable();
+            }
+        }
+        */
         [HarmonyPatch("Start")]
         [HarmonyPostfix]
         static void StartPostfix(SandSpiderAI __instance)
@@ -47,7 +65,7 @@ namespace SpiderPositionFix.Patches
                 try
                 {
                     AnimatorOverrideController controller = InitialScript.SpiderAssets.LoadAsset<AnimatorOverrideController>("Assets/LethalCompany/CustomAnims/SandSpider/Spider Anim Override.overrideController");
-                    if (debugVisals)
+                    if (debugVisals || true)
                     {
                         try
                         {
@@ -119,6 +137,8 @@ namespace SpiderPositionFix.Patches
 
             if (!__instance.IsOwner) return;
 
+            if (instanceData.invalidPositionTimer > 0) instanceData.invalidPositionTimer -= Time.deltaTime;
+
             if (InitialScript.configSettings.applyMask.Value == true)
             {
                 if (__instance.isOutside && instanceData.currentJumpMaskBit != 1)
@@ -141,52 +161,15 @@ namespace SpiderPositionFix.Patches
             if (!__instance.onWall)
             {
                 __instance.spiderSpeed = __instance.agent.speed;
-                /*if (Vector3.Distance(__instance.meshContainer.position, __instance.transform.position) > 0.4f && !__instance.agent.isOnOffMeshLink)
-                {
-                    if (instanceData.applySpeedSlowdown == true)
-                    {
-                        instanceData.offsetSpeed = Mathf.Clamp(Vector3.Distance(__instance.meshContainer.position, __instance.transform.position), 0f, 2f) / 2;
-                        __instance.agent.speed = instanceData.originalSpeed - Mathf.Min(1f, instanceData.offsetSpeed) - 0.15f;
-                    }
-                    else
-                    {
-                        instanceData.applySpeedSlowdown = true;
-                        if (__instance.currentBehaviourStateIndex == 1)
-                        {
-                            instanceData.originalSpeed = __instance.spiderSpeed;
-                        }
-                        else __instance.agent.speed = instanceData.originalSpeed;
-                    }
-                    if (debug && instanceData.originalSpeed != 0) InitialScript.Logger.LogDebug("Applying slowdown. New speed: " + __instance.agent.speed);
-                }
-                else if (instanceData.applySpeedSlowdown && !__instance.agent.isOnOffMeshLink)
-                {
-                    instanceData.applySpeedSlowdown = false;
-                    instanceData.offsetSpeed = 0;
-                    __instance.agent.speed = instanceData.originalSpeed;
-                    if (debug) InitialScript.Logger.LogDebug("Returning original speed");
-                }*/
+
                 if (__instance.agent.isOnOffMeshLink)
                 {
                     __instance.agent.speed = instanceData.originalSpeed / 1.15f;
                     if (debugLogs) InitialScript.Logger.LogDebug("On offMeshLink. Cutting speed");
                 }
-                /*if (!__instance.agent.isOnOffMeshLink && !__instance.onWall)
-                {
-                    //__instance.meshContainerPosition = __instance.transform.position;
-                    //__instance.meshContainer.position = __instance.transform.position;
-                    __instance.meshContainerTarget = __instance.transform.position;
-                }*/
             }
             else
             {
-                /*if (instanceData.applySpeedSlowdown && __instance.onWall && !__instance.reachedWallPosition)
-                {
-                    instanceData.applySpeedSlowdown = false;
-                    instanceData.offsetSpeed = 0;
-                    __instance.agent.speed = instanceData.originalSpeed;
-                    if (debug) InitialScript.Logger.LogDebug("/2/ Returning original speed");
-                }*/
                 __instance.spiderSpeed = 3.75f;
                 if (__instance.onWall)
                 {
@@ -208,85 +191,33 @@ namespace SpiderPositionFix.Patches
             {
                 if (instanceData.startPatch != true) return;
 
-                /*if (__instance.agent.velocity.y > 0.6f || __instance.agent.velocity.y < -0.6f)
+                if (!__instance.onWall && !__instance.agent.isOnOffMeshLink && Vector3.Distance(__instance.meshContainer.position, __instance.transform.position) > 0.35f && __instance.agent.velocity.magnitude > 3f)
                 {
-                    if (debug) InitialScript.Logger.LogMessage($"Vertical velocity: {__instance.agent.velocity.y}");
-                    __instance.meshContainerTargetRotation = Quaternion.LookRotation(__instance.agent.velocity, Vector3.up);
-                }*/
-
-                if (!__instance.onWall)
-                {
-                    /*if (/*Vector3.Distance(__instance.meshContainer.position, __instance.transform.position) > 0.8f || Mathf.Abs(__instance.meshContainer.position.y - __instance.transform.position.y) > 0.25f)
-                    {
-                        string text = "null";
-                        if (Vector3.Distance(__instance.meshContainer.position, __instance.transform.position) > 0.8f)
-                        {
-                            text = "Triggered by distance: " + Vector3.Distance(__instance.meshContainer.position, __instance.transform.position);
-                        }
-                        else if (Mathf.Abs(__instance.meshContainer.position.y - __instance.transform.position.y) > 0.25f)
-                        {
-                            text = "Triggered by height projection: " + Mathf.Abs(__instance.meshContainer.position.y - __instance.transform.position.y);
-                        }
-                        if (!__instance.onWall && !__instance.overrideSpiderLookRotation)
-                        {
-                            __instance.meshContainerTargetRotation = __instance.agent.transform.rotation;
-                        }
-                        if (debug) InitialScript.Logger.LogDebug(text);
-                        __instance.meshContainerTarget = __instance.agent.transform.position;
-
-                    }*/
-                    /*if (__instance.agent.isOnOffMeshLink)
-                    {
-                        __instance.meshContainer.position = Vector3.Lerp(__instance.meshContainer.position, __instance.agent.nextPosition, Distance(Vector3.Distance(__instance.meshContainer.position, __instance.transform.position), 0.5f));
-                        __instance.meshContainerPosition = __instance.meshContainer.position;
-
-                        __instance.meshContainerTargetRotation = Quaternion.Lerp(__instance.meshContainer.rotation, Quaternion.LookRotation(__instance.agent.currentOffMeshLinkData.endPos - __instance.meshContainer.position, Vector3.up), 0.75f);
-                    }
-                    else
-                    {
-                        if (__instance.agent.velocity.y > 0.6f && !__instance.overrideSpiderLookRotation) __instance.meshContainerTargetRotation = Quaternion.LookRotation(__instance.agent.velocity, Vector3.up);
-                        //__instance.meshContainerTargetRotation.SetLookRotation();
-                    }*/
-                    /*else if (Mathf.Abs(__instance.meshContainer.position.y - __instance.transform.position.y) > 0.25f)
-                    {
-                        __instance.meshContainerTargetRotation = Quaternion.LookRotation(__instance.agent.transform.position - __instance.meshContainer.position, Vector3.up);
-                    }*/
-                    /*
-                    if (Vector3.Distance(__instance.transform.position, __instance.meshContainer.position) > 0.25f && !__instance.onWall)
-                    {
-                        __instance.meshContainerTarget = __instance.transform.position;
-                    }
-                    */
-                    //InitialScript.Logger.LogInfo($"original: {__instance.refVel.magnitude}, agent velocity: {__instance.agent.velocity.magnitude}, new: {(__instance.agent.velocity * Time.deltaTime).magnitude}");
-
-                    //__instance.refVel = __instance.agent.velocity * Time.deltaTime;
-                    /*if (__instance.agent.isOnOffMeshLink)
-                    {
-                        __instance.meshContainer.position = Vector3.Lerp(__instance.meshContainer.position, __instance.agent.nextPosition, Distance(Vector3.Distance(__instance.meshContainer.position, __instance.transform.position), 0.5f));
-                        __instance.meshContainerPosition = __instance.meshContainer.position;
-
-                        __instance.meshContainerTargetRotation = Quaternion.Lerp(__instance.meshContainer.rotation, Quaternion.LookRotation(__instance.agent.currentOffMeshLinkData.endPos - __instance.meshContainer.position, Vector3.up), 0.75f);
-                    }
-                    else
-                    {
-                        if (instanceData.time <= 0f) { InitialScript.Logger.LogInfo(__instance.agent.velocity.magnitude); instanceData.time = 0.4f; }
-
-                        if (__instance.agent.velocity.magnitude > 3f && !__instance.overrideSpiderLookRotation) __instance.meshContainerTargetRotation = Quaternion.LookRotation(__instance.agent.velocity, Vector3.up);
-                        //__instance.meshContainerTargetRotation.SetLookRotation();
-                    }*/
+                    __instance.meshContainerTarget = __instance.transform.position + __instance.agent.velocity.normalized * 1.5f;
                 }
-
-                /*if (!__instance.lookingForWallPosition && __instance.onWall && __instance.movingTowardsTargetPlayer)
-                 {
-                     if (__instance.onWall && Vector3.Distance(__instance.meshContainer.position, __instance.transform.position) < 1f || instanceData.returningFromWallState > 6f)
-                     {
-                         instanceData.returningFromWallState = 0f;
-                     }
-                 }*/
             }
-            //NavMeshHit navHit = new NavMeshHit();
-            //RoundManager.Instance.GetRandomNavMeshPositionInRadiusSpherical(__instance.floorPosition, 20, navHit);
-            //InitialScript.Logger.LogDebug($"original: {__instance.refVel.magnitude}, agent velocity: {__instance.agent.velocity.magnitude}, agent velocity.sqrd: {__instance.agent.desiredVelocity.magnitude}, new: {(__instance.agent.velocity * Time.deltaTime).magnitude}");
+
+            foreach (GameObject i in instanceData.debugObjects.Values.ToList())
+            {
+                GameObject.Destroy(i);
+            }
+            instanceData.debugObjects.Clear();
+
+            GameObject spawningPrefab = ballPrefab;
+
+
+            spawningPrefab.GetComponentInChildren<MeshRenderer>().material = yellowBall;
+            spawningPrefab.GetComponent<ScanNodeProperties>().headerText = $"path1 corner #1";
+            instanceData.debugObjects.Add(-5, UnityEngine.Object.Instantiate(spawningPrefab, __instance.meshContainer.position + (__instance.agent.velocity * Time.deltaTime *-1), Quaternion.identity));
+            spawningPrefab.GetComponentInChildren<MeshRenderer>().material = greenBall;
+            spawningPrefab.GetComponent<ScanNodeProperties>().headerText = $"refVel";
+            instanceData.debugObjects.Add(-4, UnityEngine.Object.Instantiate(spawningPrefab, __instance.meshContainer.position + __instance.refVel, Quaternion.identity));
+            spawningPrefab.GetComponentInChildren<MeshRenderer>().material = redBall;
+            spawningPrefab.GetComponent<ScanNodeProperties>().headerText = $"meshContainerTarget";
+            instanceData.debugObjects.Add(-3, UnityEngine.Object.Instantiate(spawningPrefab, __instance.meshContainerTarget, Quaternion.identity));
+            spawningPrefab.GetComponentInChildren<MeshRenderer>().material = blueBall;
+            spawningPrefab.GetComponent<ScanNodeProperties>().headerText = $"meshContainerServerPosition";
+            instanceData.debugObjects.Add(-2, UnityEngine.Object.Instantiate(spawningPrefab, __instance.meshContainerServerPosition, Quaternion.identity));
         }
 
         [HarmonyPatch("CalculateMeshMovement")]
@@ -298,7 +229,7 @@ namespace SpiderPositionFix.Patches
                 if (!__instance.onWall)
                 {
                     float distanceFromFloorPosition = Vector3.Distance(__instance.transform.position, __instance.floorPosition);
-                    float distanceFromFloorPositionMesh = Vector3.Distance(__instance.meshContainer.transform.position, __instance.floorPosition);
+                    float distanceFromFloorPositionMesh = Vector3.Distance(__instance.meshContainer.position, __instance.floorPosition);
 
                     if (spiderData[__instance].delayTimer > 1f)
                     {
@@ -322,11 +253,9 @@ namespace SpiderPositionFix.Patches
                     }
                     __instance.SetDestinationToPosition(__instance.floorPosition);
                     __instance.CalculateSpiderPathToPosition();
-                    //__instance.navigateToPositionTarget = __instance.transform.position + Vector3.Normalize(__instance.agent.desiredVelocity) * 2f;
                     if (distanceFromFloorPosition < 0.7f && distanceFromFloorPositionMesh < 0.7f)
                     {
                         __instance.onWall = true;
-                        //__instance.meshContainerTarget = __instance.wallPosition;
                         spiderData[__instance].delayTimes = 0;
                         return true;
                     }
@@ -357,25 +286,9 @@ namespace SpiderPositionFix.Patches
                     {
                         __instance.meshContainerTargetRotation = Quaternion.LookRotation(__instance.agent.velocity * Time.deltaTime, Vector3.up);
                     }
-                    //__instance.refVel = __instance.agent.velocity * (-1) * Time.deltaTime;
-                    //__instance.meshContainerTargetRotation.SetLookRotation();
                 }
             }
         }
-
-        [HarmonyPatch("CalculateSpiderPathToPosition")]
-        [HarmonyPostfix]
-        static void CalculateSpiderPathPatch(SandSpiderAI __instance)
-        {
-            if (NavMesh.CalculatePath(__instance.meshContainer.position, __instance.navigateToPositionTarget, __instance.agent.areaMask, __instance.path1))
-            {
-                if (Vector3.Distance(__instance.transform.position, __instance.meshContainer.position) > 0.25f && !__instance.onWall)
-                {
-                    __instance.meshContainerTarget = __instance.transform.position;
-                }
-            }
-        }
-
 
         static float Distance(float distance, float time)
         {
@@ -401,20 +314,6 @@ namespace SpiderPositionFix.Patches
                 if (debugLogs) InitialScript.Logger.LogDebug("Spider: Toggled mask bit to " + bit);
             }
         }
-        /*
-        [HarmonyPatch("TriggerChaseWithPlayer")]
-        [HarmonyPrefix]
-        static void TriggerChaseWithPlayerPrefix(SandSpiderAI __instance)
-        {
-            if(__instance.agent.enabled == false)
-            {
-                __instance.agent.enabled = true;
-                if(__instance.onWall)
-                {
-                    __instance.agent.Warp(__instance.floorPosition);
-                }
-            }
-        }*/
 
         [HarmonyPatch("GetWallPositionForSpiderMesh")]
         [HarmonyPrefix]
@@ -436,8 +335,12 @@ namespace SpiderPositionFix.Patches
 
             if (__instance.floorPosition == Vector3.zero || RoundManager.Instance.GetNavMeshPosition(__instance.floorPosition, NMHit, 0.7f) == __instance.floorPosition || !__instance.agent.CalculatePath(__instance.floorPosition, pathCheck) || pathCheck.status == NavMeshPathStatus.PathPartial || pathCheck.status == NavMeshPathStatus.PathInvalid)
             {
-                InitialScript.Logger.LogWarning($"failed to get valid position for floorPosition.");
-
+                if (instanceData.invalidPositionTimer <= 0f)
+                {
+                    InitialScript.Logger.LogWarning($"failed to get valid position for floorPosition.");
+                    instanceData.invalidPositionTimer = 5f;
+                }
+                
                 Vector3 customWallPos = Vector3.zero;
 
                 for (int i = 0; i < 4; i++)
@@ -457,12 +360,12 @@ namespace SpiderPositionFix.Patches
                     }
                     __instance.floorPosition = newFloorPosition;
                     __result = true;
+                    instanceData.invalidPositionTimer = 0f;
                     InitialScript.Logger.LogMessage($"Assigned new floor position.");
                     break;
                 }
             }
             pathCheck.ClearCorners();
-            if (!debugVisals) return;
 
             foreach (GameObject i in instanceData.debugObjects.Values.ToList())
             {
@@ -470,15 +373,13 @@ namespace SpiderPositionFix.Patches
             }
             instanceData.debugObjects.Clear();
 
+            if (!debugVisals) return;
+
             Dictionary<int, List<Vector3>> wallVectors = new Dictionary<int, List<Vector3>>();
             LineRenderer renderedLine;
             RaycastHit rayHitCustom;
             GameObject spawningPrefab = ballPrefab;
 
-            //if (__instance.floorPosition == Vector3.zero) __result = false;
-            //{
-            //if (__instance.wallPosition != null)
-            //{
             Vector3 projection = new Vector3(__instance.meshContainer.position.x, __instance.wallPosition.y, __instance.meshContainer.position.z);
             spawningPrefab.GetComponentInChildren<MeshRenderer>().material = redBall;
             spawningPrefab.GetComponent<ScanNodeProperties>().headerText = $"projected WallPosition";
@@ -487,7 +388,6 @@ namespace SpiderPositionFix.Patches
             if (debugLogs) InitialScript.Logger.LogInfo($"Rounded up {projectionDistance} to {splitNum}");   
             renderedLine = spawningPrefab.GetComponentInChildren<LineRenderer>(); renderedLine.material = redBall; renderedLine.useWorldSpace = true;
 
-            //SetRenderedLinePoints([projection,__instance.wallPosition],renderedLine);
             if (debugLogs) InitialScript.Logger.LogInfo("projected wallPosition");
             instanceData.debugObjects.Add(-1,UnityEngine.Object.Instantiate(spawningPrefab, projection, Quaternion.identity));
             if (debugLogs) InitialScript.Logger.LogInfo($"instantiated projectedWallPosition {projection}");
@@ -515,7 +415,6 @@ namespace SpiderPositionFix.Patches
                 Ray cRay = new Ray(lerpedVector, projectedWallPos - lerpedVector);
                 Physics.Raycast(cRay, out rayHitCustom, 7f, StartOfRound.Instance.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore);
                 spawningPrefab.GetComponent<ScanNodeProperties>().headerText = $"Generated lerpedVector {i}";
-                //UnityEngine.Object.Instantiate(spawningPrefab, lerpedVector, Quaternion.identity);
                 wallVectors.Add(4 + i, [cRay.GetPoint(rayHitCustom.distance - 0.2f), lerpedVector]);
 
                 if (debugLogs) InitialScript.Logger.LogInfo($"set wallVector[{i}] to {wallVectors[i][0]}");
