@@ -191,9 +191,9 @@ namespace SpiderPositionFix.Patches
             {
                 if (instanceData.startPatch != true) return;
 
-                if (!__instance.onWall && !__instance.agent.isOnOffMeshLink && Vector3.Distance(__instance.meshContainer.position, __instance.transform.position) > 0.35f && __instance.agent.velocity.magnitude > 3f)
+                if (!__instance.onWall && !__instance.agent.isOnOffMeshLink && (Vector3.Distance(__instance.meshContainer.position, __instance.transform.position) > 0.35f ) && __instance.agent.velocity.magnitude > 3f)
                 {
-                    __instance.meshContainerTarget = __instance.transform.position + __instance.agent.velocity.normalized * 1.5f;
+                    __instance.meshContainerTarget = __instance.transform.position + __instance.agent.velocity.normalized * 1.25f;
                 }
             }
 
@@ -284,8 +284,11 @@ namespace SpiderPositionFix.Patches
 
                     if (__instance.agent.velocity.magnitude > 2f && !__instance.overrideSpiderLookRotation)
                     {
-                        __instance.meshContainerTargetRotation = Quaternion.LookRotation(__instance.agent.velocity * Time.deltaTime, Vector3.up);
+                        __instance.meshContainerTargetRotation = Quaternion.LookRotation(__instance.agent.velocity.normalized * Time.deltaTime, Vector3.up);
                     }
+
+                    __instance.navigateToPositionTarget = __instance.transform.position + __instance.agent.velocity.normalized * Time.deltaTime * 1.25f;
+
                 }
             }
         }
