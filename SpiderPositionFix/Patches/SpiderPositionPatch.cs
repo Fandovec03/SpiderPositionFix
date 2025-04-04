@@ -2,6 +2,8 @@ using HarmonyLib;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
+using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
 using UnityEngine;
 using UnityEngine.AI;
@@ -26,6 +28,7 @@ namespace SpiderPositionFix.Patches
         public float time = 0.2f;
         public Vector3 originalWallPosition = Vector3.zero;
         public float invalidPositionTimer = 0f;
+        public RaycastHit unmodifiedWallRaycast = new RaycastHit();
     }
 
     [HarmonyPatch(typeof(SandSpiderAI))]
@@ -41,21 +44,30 @@ namespace SpiderPositionFix.Patches
         static Material greenBall;
         static Material yellowBall;
 
-        /*
+        
         [HarmonyPatch(typeof(SandSpiderAI), "GetWallPositionForSpiderMesh")]
         public static class SandSpiderGetWallPosTPatch
         {
-            static IEnumerable<CodeInstruction> Transpiller(IEnumerable<CodeInstruction> instructions)
+            static IEnumerable<CodeInstruction> Transpiller(SandSpiderAI __instance, IEnumerable<CodeInstruction> instructions)
             {
                 var codeMatcher = new CodeMatcher(instructions);
 
-                codeMatcher.MatchForward()
-    
+                var Match = codeMatcher.MatchForward(false, new CodeMatch(OpCodes.Ldflda, __instance.ray), new CodeMatch(OpCodes.Ldarg_0), new CodeMatch(OpCodes.Ldflda, __instance.rayHit));
 
-            return codes.AsEnumerable();
+                try
+                {
+                spiderData[__instance].unmodifiedWallRaycast = (RaycastHit)Match.Operand;
+                }
+                catch(Exception e)
+                {
+                    InitialScript.Logger.LogError("Transpiller error occured.");
+                    InitialScript.Logger.LogError(e);
+                }
+
+            return instructions.AsEnumerable();
             }
         }
-        */
+        
         [HarmonyPatch("Start")]
         [HarmonyPostfix]
         static void StartPostfix(SandSpiderAI __instance)
@@ -206,6 +218,11 @@ namespace SpiderPositionFix.Patches
             GameObject spawningPrefab = ballPrefab;
 
 
+            InstantiateVisalTool(__instance, spawningPrefab, yellowBall, $"path1 corner #1", -5, __instance.meshContainer.position + (__instance.agent.velocity * Time.deltaTime *-1));
+            InstantiateVisalTool(__instance, spawningPrefab, greenBall, $"refVel", -4, __instance.meshContainer.position + __instance.refVel);
+            InstantiateVisalTool(__instance, spawningPrefab, redBall, $"meshContainerTarget", -3, __instance.meshContainerTarget);
+            InstantiateVisalTool(__instance, spawningPrefab, blueBall, $"meshContainerServerPosition", -2, __instance.meshContainerServerPosition);
+            /*
             spawningPrefab.GetComponentInChildren<MeshRenderer>().material = yellowBall;
             spawningPrefab.GetComponent<ScanNodeProperties>().headerText = $"path1 corner #1";
             instanceData.debugObjects.Add(-5, UnityEngine.Object.Instantiate(spawningPrefab, __instance.meshContainer.position + (__instance.agent.velocity * Time.deltaTime *-1), Quaternion.identity));
@@ -218,6 +235,7 @@ namespace SpiderPositionFix.Patches
             spawningPrefab.GetComponentInChildren<MeshRenderer>().material = blueBall;
             spawningPrefab.GetComponent<ScanNodeProperties>().headerText = $"meshContainerServerPosition";
             instanceData.debugObjects.Add(-2, UnityEngine.Object.Instantiate(spawningPrefab, __instance.meshContainerServerPosition, Quaternion.identity));
+            */
         }
 
         [HarmonyPatch("CalculateMeshMovement")]
@@ -335,7 +353,6 @@ namespace SpiderPositionFix.Patches
             Vector3 normalProjection = new Vector3(normalPosition.x, __instance.wallPosition.y, normalPosition.z);
             NavMeshPath pathCheck = new NavMeshPath();
 
-
             if (__instance.floorPosition == Vector3.zero || RoundManager.Instance.GetNavMeshPosition(__instance.floorPosition, NMHit, 0.7f) == __instance.floorPosition || !__instance.agent.CalculatePath(__instance.floorPosition, pathCheck) || pathCheck.status == NavMeshPathStatus.PathPartial || pathCheck.status == NavMeshPathStatus.PathInvalid)
             {
                 if (instanceData.invalidPositionTimer <= 0f)
@@ -345,6 +362,7 @@ namespace SpiderPositionFix.Patches
                 }
                 
                 Vector3 customWallPos = Vector3.zero;
+                InitialScript.Logger.LogInfo($"Test | WallPosition: {__instance.wallPosition}, unModifiedWallRayCast.point: {instanceData.unmodifiedWallRaycast.point}");
 
                 for (int i = 0; i < 4; i++)
                 {
@@ -420,10 +438,40 @@ namespace SpiderPositionFix.Patches
                 spawningPrefab.GetComponent<ScanNodeProperties>().headerText = $"Generated lerpedVector {i}";
                 wallVectors.Add(4 + i, [cRay.GetPoint(rayHitCustom.distance - 0.2f), lerpedVector]);
 
-                if (debugLogs) InitialScript.Logger.LogInfo($"set wallVector[{i}] to {wallVectors[i][0]}");
+                if (debugLogs) InitialScript.Logger.LogInfo($"set wallVector[{i}] to {wallVectors[4+i][0]}");
+                if (wallVectors[4 + i][0] == Vector3.zero) InitialScript.Logger.LogWarning("Invalid raycast position detected");
             }
 
-            for (int i = 0;i < 4 + splitNum;i++)
+            int AdditionalSplitNum = 0;
+            for (int i = 1; i < splitNum; i++)
+            {
+                if (wallVectors[4+i].Count < 2)
+                {
+
+                }
+                else if (i > 1 && Vector3.Distance(wallVectors[4+i][0],wallVectors[3+i][0]) > 1.75f)
+                {
+                spawningPrefab.GetComponentInChildren<MeshRenderer>().material = whiteBall;
+                Ray cRay = new Ray(wallVectors[i][1], Vector3.Lerp(wallVectors[i][0], wallVectors[i-1][0], 0.5f) - wallVectors[i][1]);
+                Physics.Raycast(cRay, out rayHitCustom, 7f, StartOfRound.Instance.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore);
+                spawningPrefab.GetComponent<ScanNodeProperties>().headerText = $"Generated additional Vector {splitNum + i}";
+                wallVectors.Add(4 + i + splitNum, [cRay.GetPoint(rayHitCustom.distance - 0.2f), wallVectors[i][1]]);
+
+                if (debugLogs) InitialScript.Logger.LogInfo($"set additional wallVector[{i + splitNum}] to {wallVectors[4+i+splitNum][0]}");
+                if (wallVectors[4 + i][0] == Vector3.zero) InitialScript.Logger.LogWarning("Invalid raycast position detected");
+                AdditionalSplitNum++;
+                }
+            }
+
+            if (debugLogs)
+            {
+                InitialScript.Logger.LogInfo($"final splitNum count = {splitNum}");
+                InitialScript.Logger.LogInfo($"final AdditionalSplitNum count = {AdditionalSplitNum}");
+                InitialScript.Logger.LogInfo($"total count = {splitNum + AdditionalSplitNum}");
+            }
+
+
+            for (int i = 0;i < 4 + splitNum + AdditionalSplitNum;i++)
             {
                 InitialScript.Logger.LogInfo($"Processing wallVector[{i}] |{i}|");
                 try
@@ -477,6 +525,14 @@ namespace SpiderPositionFix.Patches
 
                 lr.SetPosition(i, positions[i]);
             }
+        }
+
+        public static void InstantiateVisalTool(SandSpiderAI __instance, GameObject spawningPrefab, Material material, string headerText, int index, Vector3 position)
+        {
+            spiderPositionData instanceData = spiderData[__instance];
+            spawningPrefab.GetComponentInChildren<MeshRenderer>().material = material;
+            spawningPrefab.GetComponent<ScanNodeProperties>().headerText = headerText;
+            instanceData.debugObjects.Add(index, UnityEngine.Object.Instantiate(spawningPrefab, position, Quaternion.identity));
         }
     }
 }
