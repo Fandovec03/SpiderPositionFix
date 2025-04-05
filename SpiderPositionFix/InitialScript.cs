@@ -41,7 +41,7 @@ namespace SpiderPositionFix
             Harmony ??= new Harmony(MyPluginInfo.PLUGIN_GUID);
 
             Logger.LogDebug("Patching spider position fix...");
-            Harmony.PatchAll(typeof(SpiderPositionPatch.SandSpiderGetWallPosTPatch));
+
             Harmony.PatchAll(typeof(SpiderPositionPatch));
 
             Logger.LogDebug("Finished patching!");

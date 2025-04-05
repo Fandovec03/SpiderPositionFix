@@ -28,7 +28,8 @@ namespace SpiderPositionFix.Patches
         public float time = 0.2f;
         public Vector3 originalWallPosition = Vector3.zero;
         public float invalidPositionTimer = 0f;
-        public RaycastHit unmodifiedWallRaycast = new RaycastHit();
+        public int faildetToGetPositionTimes = 0;
+        public SandSpiderAI instance;
     }
 
     [HarmonyPatch(typeof(SandSpiderAI))]
@@ -44,30 +45,6 @@ namespace SpiderPositionFix.Patches
         static Material greenBall;
         static Material yellowBall;
 
-        
-        [HarmonyPatch(typeof(SandSpiderAI), "GetWallPositionForSpiderMesh")]
-        public static class SandSpiderGetWallPosTPatch
-        {
-            static IEnumerable<CodeInstruction> Transpiller(SandSpiderAI __instance, IEnumerable<CodeInstruction> instructions)
-            {
-                var codeMatcher = new CodeMatcher(instructions);
-
-                var Match = codeMatcher.MatchForward(false, new CodeMatch(OpCodes.Ldflda, __instance.ray), new CodeMatch(OpCodes.Ldarg_0), new CodeMatch(OpCodes.Ldflda, __instance.rayHit));
-
-                try
-                {
-                spiderData[__instance].unmodifiedWallRaycast = (RaycastHit)Match.Operand;
-                }
-                catch(Exception e)
-                {
-                    InitialScript.Logger.LogError("Transpiller error occured.");
-                    InitialScript.Logger.LogError(e);
-                }
-
-            return instructions.AsEnumerable();
-            }
-        }
-        
         [HarmonyPatch("Start")]
         [HarmonyPostfix]
         static void StartPostfix(SandSpiderAI __instance)
@@ -103,6 +80,7 @@ namespace SpiderPositionFix.Patches
             if (!spiderData.ContainsKey(__instance))
             {
                 spiderData.Add(__instance, new spiderPositionData());
+                spiderData[__instance].instance = __instance;
             }
             spiderData[__instance].startPatch = true;
         }
@@ -203,39 +181,28 @@ namespace SpiderPositionFix.Patches
             {
                 if (instanceData.startPatch != true) return;
 
-                if (!__instance.onWall && !__instance.agent.isOnOffMeshLink && (Vector3.Distance(__instance.meshContainer.position, __instance.transform.position) > 0.35f ) && __instance.agent.velocity.magnitude > 3f)
+                if (!__instance.onWall && !__instance.agent.isOnOffMeshLink && Vector3.Distance(__instance.meshContainer.position, __instance.transform.position) > 0.35f && __instance.agent.velocity.magnitude > 3f && __instance.agent.speed > 0.5f)
                 {
                     __instance.meshContainerTarget = __instance.transform.position + __instance.agent.velocity.normalized * 1.25f;
                 }
             }
 
-            foreach (GameObject i in instanceData.debugObjects.Values.ToList())
+            if (!__instance.onWall && !__instance.gotWallPositionInLOS)
             {
-                GameObject.Destroy(i);
+                foreach (GameObject i in instanceData.debugObjects.Values.ToList())
+                {
+                    GameObject.Destroy(i);
+                }
+                instanceData.debugObjects.Clear();
+
+                GameObject spawningPrefab = ballPrefab;
+
+
+                InstantiateVisalTool(__instance, spawningPrefab, yellowBall, $"path1 corner #1", -5, __instance.meshContainer.position + (__instance.agent.velocity * Time.deltaTime *-1));
+                InstantiateVisalTool(__instance, spawningPrefab, greenBall, $"refVel", -4, __instance.meshContainer.position + __instance.refVel);
+                InstantiateVisalTool(__instance, spawningPrefab, redBall, $"meshContainerTarget", -3, __instance.meshContainerTarget);
+                InstantiateVisalTool(__instance, spawningPrefab, blueBall, $"meshContainerServerPosition", -2, __instance.meshContainerServerPosition);
             }
-            instanceData.debugObjects.Clear();
-
-            GameObject spawningPrefab = ballPrefab;
-
-
-            InstantiateVisalTool(__instance, spawningPrefab, yellowBall, $"path1 corner #1", -5, __instance.meshContainer.position + (__instance.agent.velocity * Time.deltaTime *-1));
-            InstantiateVisalTool(__instance, spawningPrefab, greenBall, $"refVel", -4, __instance.meshContainer.position + __instance.refVel);
-            InstantiateVisalTool(__instance, spawningPrefab, redBall, $"meshContainerTarget", -3, __instance.meshContainerTarget);
-            InstantiateVisalTool(__instance, spawningPrefab, blueBall, $"meshContainerServerPosition", -2, __instance.meshContainerServerPosition);
-            /*
-            spawningPrefab.GetComponentInChildren<MeshRenderer>().material = yellowBall;
-            spawningPrefab.GetComponent<ScanNodeProperties>().headerText = $"path1 corner #1";
-            instanceData.debugObjects.Add(-5, UnityEngine.Object.Instantiate(spawningPrefab, __instance.meshContainer.position + (__instance.agent.velocity * Time.deltaTime *-1), Quaternion.identity));
-            spawningPrefab.GetComponentInChildren<MeshRenderer>().material = greenBall;
-            spawningPrefab.GetComponent<ScanNodeProperties>().headerText = $"refVel";
-            instanceData.debugObjects.Add(-4, UnityEngine.Object.Instantiate(spawningPrefab, __instance.meshContainer.position + __instance.refVel, Quaternion.identity));
-            spawningPrefab.GetComponentInChildren<MeshRenderer>().material = redBall;
-            spawningPrefab.GetComponent<ScanNodeProperties>().headerText = $"meshContainerTarget";
-            instanceData.debugObjects.Add(-3, UnityEngine.Object.Instantiate(spawningPrefab, __instance.meshContainerTarget, Quaternion.identity));
-            spawningPrefab.GetComponentInChildren<MeshRenderer>().material = blueBall;
-            spawningPrefab.GetComponent<ScanNodeProperties>().headerText = $"meshContainerServerPosition";
-            instanceData.debugObjects.Add(-2, UnityEngine.Object.Instantiate(spawningPrefab, __instance.meshContainerServerPosition, Quaternion.identity));
-            */
         }
 
         [HarmonyPatch("CalculateMeshMovement")]
@@ -300,12 +267,15 @@ namespace SpiderPositionFix.Patches
                 {
                     if (spiderData[__instance].time <= 0f && debugLogs) { InitialScript.Logger.LogDebug(__instance.agent.velocity.magnitude); spiderData[__instance].time = 0.4f; }
 
-                    if (__instance.agent.velocity.magnitude > 2f && !__instance.overrideSpiderLookRotation)
+                    if (__instance.agent.velocity.magnitude > 3f && !__instance.overrideSpiderLookRotation)
                     {
                         __instance.meshContainerTargetRotation = Quaternion.LookRotation(__instance.agent.velocity.normalized * Time.deltaTime, Vector3.up);
                     }
 
-                    __instance.navigateToPositionTarget = __instance.transform.position + __instance.agent.velocity.normalized * Time.deltaTime * 1.25f;
+                    if (__instance.agent.velocity.magnitude > 3f && __instance.agent.speed > 0.5f)
+                    {
+                        __instance.navigateToPositionTarget = __instance.transform.position + __instance.agent.velocity.normalized * Time.deltaTime * 1.25f;
+                    }
 
                 }
             }
@@ -352,6 +322,11 @@ namespace SpiderPositionFix.Patches
             Vector3 normalPosition = __instance.wallPosition + __instance.wallNormal;
             Vector3 normalProjection = new Vector3(normalPosition.x, __instance.wallPosition.y, normalPosition.z);
             NavMeshPath pathCheck = new NavMeshPath();
+            Vector3 unmodifiedWallPosition = __instance.rayHit.point;
+            List<int> failedRaycastList = new List<int>();
+
+
+            InitialScript.Logger.LogInfo($"Test | WallPosition: {__instance.wallPosition}, unmodifiedWallPosition: {unmodifiedWallPosition}");
 
             if (__instance.floorPosition == Vector3.zero || RoundManager.Instance.GetNavMeshPosition(__instance.floorPosition, NMHit, 0.7f) == __instance.floorPosition || !__instance.agent.CalculatePath(__instance.floorPosition, pathCheck) || pathCheck.status == NavMeshPathStatus.PathPartial || pathCheck.status == NavMeshPathStatus.PathInvalid)
             {
@@ -362,11 +337,10 @@ namespace SpiderPositionFix.Patches
                 }
                 
                 Vector3 customWallPos = Vector3.zero;
-                InitialScript.Logger.LogInfo($"Test | WallPosition: {__instance.wallPosition}, unModifiedWallRayCast.point: {instanceData.unmodifiedWallRaycast.point}");
 
                 for (int i = 0; i < 4; i++)
                 {
-                    customWallPos = Vector3.Lerp(__instance.wallPosition, normalProjection, (float)(i + 1) / 4);
+                    customWallPos = Vector3.Lerp(unmodifiedWallPosition, normalProjection, (float)(i + 1) / 4);
                     Vector3 newFloorPosition = Vector3.zero;
                     RaycastHit rcHit = new RaycastHit();
                     if (Physics.Raycast(customWallPos, Vector3.down, out rcHit, 20f, StartOfRound.Instance.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore))
@@ -377,9 +351,11 @@ namespace SpiderPositionFix.Patches
                     if (newFloorPosition == Vector3.zero || RoundManager.Instance.GetNavMeshPosition(newFloorPosition, NMHit, 0.7f) == newFloorPosition || !__instance.agent.CalculatePath(newFloorPosition, pathCheck) || pathCheck.status == NavMeshPathStatus.PathPartial || pathCheck.status == NavMeshPathStatus.PathInvalid)
                     {
                         __result = false;
+                        spiderData[__instance].faildetToGetPositionTimes++;
                         continue;
                     }
                     __instance.floorPosition = newFloorPosition;
+                    spiderData[__instance].faildetToGetPositionTimes = 0;
                     __result = true;
                     instanceData.invalidPositionTimer = 0f;
                     InitialScript.Logger.LogMessage($"Assigned new floor position.");
@@ -401,40 +377,42 @@ namespace SpiderPositionFix.Patches
             RaycastHit rayHitCustom;
             GameObject spawningPrefab = ballPrefab;
 
-            Vector3 projection = new Vector3(__instance.meshContainer.position.x, __instance.wallPosition.y, __instance.meshContainer.position.z);
-            spawningPrefab.GetComponentInChildren<MeshRenderer>().material = redBall;
+            Vector3 projection = new Vector3(__instance.meshContainer.position.x, unmodifiedWallPosition.y, __instance.meshContainer.position.z);
+            spawningPrefab.GetComponentInChildren<MeshRenderer>().SetMaterial(redBall);
             spawningPrefab.GetComponent<ScanNodeProperties>().headerText = $"projected WallPosition";
             float projectionDistance = Vector3.Distance(__instance.meshContainer.position, projection);
             int splitNum = (int)MathF.Round(projectionDistance * 2, 0);
             if (debugLogs) InitialScript.Logger.LogInfo($"Rounded up {projectionDistance} to {splitNum}");   
-            renderedLine = spawningPrefab.GetComponentInChildren<LineRenderer>(); renderedLine.material = redBall; renderedLine.useWorldSpace = true;
+            renderedLine = spawningPrefab.GetComponentInChildren<LineRenderer>(); renderedLine.SetMaterial(redBall); renderedLine.useWorldSpace = true;
 
             if (debugLogs) InitialScript.Logger.LogInfo("projected wallPosition");
             instanceData.debugObjects.Add(-1,UnityEngine.Object.Instantiate(spawningPrefab, projection, Quaternion.identity));
             if (debugLogs) InitialScript.Logger.LogInfo($"instantiated projectedWallPosition {projection}");
 
-            Vector3 projectedMeshPosition = Vector3.Project(__instance.meshContainer.position - __instance.wallPosition,normalProjection - __instance.wallPosition) + __instance.wallPosition;
+            Vector3 projectedMeshPosition = Vector3.Project(__instance.meshContainer.position - unmodifiedWallPosition, normalProjection - unmodifiedWallPosition) + unmodifiedWallPosition;
             Vector3 CalculaterMeshPosition = new Vector3(projectedMeshPosition.x,__instance.meshContainer.position.y, projectedMeshPosition.z);
 
 
             wallVectors.Add(0,[__instance.meshContainer.position]);
-            wallVectors.Add(1,[__instance.wallPosition, __instance.transform.position]);
-            wallVectors.Add(2, [__instance.floorPosition, __instance.wallPosition]);
-            wallVectors.Add(3, [normalProjection, __instance.wallPosition]);
-            wallVectors.Add(4, [projectedMeshPosition, __instance.wallPosition]);
+            wallVectors.Add(1,[unmodifiedWallPosition, __instance.transform.position]);
+            wallVectors.Add(2, [__instance.floorPosition, unmodifiedWallPosition]);
+            wallVectors.Add(3, [normalProjection, unmodifiedWallPosition]);
+            wallVectors.Add(4, [projectedMeshPosition, unmodifiedWallPosition]);
 
             for (int i = 1; i < splitNum; i++)
             {
                 float t = (float)i / splitNum;
 
                 Vector3 lerpedVector = Vector3.Lerp(CalculaterMeshPosition, projectedMeshPosition, t);
-                //InitialScript.Logger.LogInfo($"calculated lerp {Vector3.Lerp(__instance.meshContainer.position, projection, t)}");
-                //InitialScript.Logger.LogInfo($"projected lerpedVector {lerpedVector}, container position: {__instance.meshContainer.position}, projection: {projection}, t: {t}");
-                Vector3 projectedWallPos = new Vector3(__instance.wallPosition.x, lerpedVector.y, __instance.wallPosition.z);
+                Vector3 projectedWallPos = new Vector3(unmodifiedWallPosition.x, lerpedVector.y, unmodifiedWallPosition.z);
 
-                spawningPrefab.GetComponentInChildren<MeshRenderer>().material = whiteBall;
+                spawningPrefab.GetComponentInChildren<MeshRenderer>().SetMaterial(whiteBall);
                 Ray cRay = new Ray(lerpedVector, projectedWallPos - lerpedVector);
-                Physics.Raycast(cRay, out rayHitCustom, 7f, StartOfRound.Instance.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore);
+                if (!Physics.Raycast(cRay, out rayHitCustom, 7f, StartOfRound.Instance.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore))
+                {
+                    InitialScript.Logger.LogWarning("Raycast failed to hit anything within set distance.");
+                    failedRaycastList.Add(i);
+                }
                 spawningPrefab.GetComponent<ScanNodeProperties>().headerText = $"Generated lerpedVector {i}";
                 wallVectors.Add(4 + i, [cRay.GetPoint(rayHitCustom.distance - 0.2f), lerpedVector]);
 
@@ -442,63 +420,46 @@ namespace SpiderPositionFix.Patches
                 if (wallVectors[4 + i][0] == Vector3.zero) InitialScript.Logger.LogWarning("Invalid raycast position detected");
             }
 
-            int AdditionalSplitNum = 0;
-            for (int i = 1; i < splitNum; i++)
-            {
-                if (wallVectors[4+i].Count < 2)
-                {
-
-                }
-                else if (i > 1 && Vector3.Distance(wallVectors[4+i][0],wallVectors[3+i][0]) > 1.75f)
-                {
-                spawningPrefab.GetComponentInChildren<MeshRenderer>().material = whiteBall;
-                Ray cRay = new Ray(wallVectors[i][1], Vector3.Lerp(wallVectors[i][0], wallVectors[i-1][0], 0.5f) - wallVectors[i][1]);
-                Physics.Raycast(cRay, out rayHitCustom, 7f, StartOfRound.Instance.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore);
-                spawningPrefab.GetComponent<ScanNodeProperties>().headerText = $"Generated additional Vector {splitNum + i}";
-                wallVectors.Add(4 + i + splitNum, [cRay.GetPoint(rayHitCustom.distance - 0.2f), wallVectors[i][1]]);
-
-                if (debugLogs) InitialScript.Logger.LogInfo($"set additional wallVector[{i + splitNum}] to {wallVectors[4+i+splitNum][0]}");
-                if (wallVectors[4 + i][0] == Vector3.zero) InitialScript.Logger.LogWarning("Invalid raycast position detected");
-                AdditionalSplitNum++;
-                }
-            }
-
             if (debugLogs)
             {
                 InitialScript.Logger.LogInfo($"final splitNum count = {splitNum}");
-                InitialScript.Logger.LogInfo($"final AdditionalSplitNum count = {AdditionalSplitNum}");
-                InitialScript.Logger.LogInfo($"total count = {splitNum + AdditionalSplitNum}");
+                InitialScript.Logger.LogInfo($"total count = {splitNum}");
             }
 
 
-            for (int i = 0;i < 4 + splitNum + AdditionalSplitNum;i++)
+            for (int i = 0;i < 4 + splitNum;i++)
             {
                 InitialScript.Logger.LogInfo($"Processing wallVector[{i}] |{i}|");
                 try
                 {
                     bool validWallVector = !Physics.Linecast(__instance.floorPosition, wallVectors[i][0], StartOfRound.Instance.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore) || !Physics.Linecast(normalProjection, wallVectors[i][0], StartOfRound.Instance.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore);
 
-                    if (i == 0) { spawningPrefab.GetComponentInChildren<MeshRenderer>().material = greenBall; spawningPrefab.GetComponent<ScanNodeProperties>().headerText = "meshContainer position"; }
-                    else if (i == 1) { spawningPrefab.GetComponentInChildren<MeshRenderer>().material = blueBall; spawningPrefab.GetComponent<ScanNodeProperties>().headerText = "wall position"; }
-                    else if (i == 2) { spawningPrefab.GetComponentInChildren<MeshRenderer>().material = yellowBall; spawningPrefab.GetComponent<ScanNodeProperties>().headerText = "floor position"; }
-                    else if (i == 3) { spawningPrefab.GetComponentInChildren<MeshRenderer>().material = blueBall; spawningPrefab.GetComponent<ScanNodeProperties>().headerText = "projected normal position"; }
-                    else if (i == 4) { spawningPrefab.GetComponentInChildren<MeshRenderer>().material = blueBall; spawningPrefab.GetComponent<ScanNodeProperties>().headerText = "projected meshContainer position on Normal"; }
-                    else { spawningPrefab.GetComponentInChildren<MeshRenderer>().material = whiteBall; spawningPrefab.GetComponent<ScanNodeProperties>().headerText = $"Generated position {i}"; }
-
-                    instanceData.debugObjects.Add(i,UnityEngine.Object.Instantiate(spawningPrefab, wallVectors[i][0], Quaternion.identity));
+                    if (i == 0) { spawningPrefab.GetComponentInChildren<MeshRenderer>().SetMaterial(greenBall); spawningPrefab.GetComponent<ScanNodeProperties>().headerText = "meshContainer position"; spawningPrefab.gameObject.name = $"meshContainer position {i}"; }
+                    else if (i == 1) { spawningPrefab.GetComponentInChildren<MeshRenderer>().SetMaterial(blueBall); spawningPrefab.GetComponent<ScanNodeProperties>().headerText = "wall position"; spawningPrefab.gameObject.name = $"wall position {i}"; }
+                    else if (i == 2) { spawningPrefab.GetComponentInChildren<MeshRenderer>().SetMaterial(yellowBall); spawningPrefab.GetComponent<ScanNodeProperties>().headerText = "floor position"; spawningPrefab.gameObject.name = $"floor position {i}"; }
+                    else if (i == 3) { spawningPrefab.GetComponentInChildren<MeshRenderer>().SetMaterial(blueBall); spawningPrefab.GetComponent<ScanNodeProperties>().headerText = "projected normal position"; spawningPrefab.gameObject.name = $"projected normal position {i}"; }
+                    else if (i == 4) { spawningPrefab.GetComponentInChildren<MeshRenderer>().SetMaterial(blueBall); spawningPrefab.GetComponent<ScanNodeProperties>().headerText = "projected meshContainer position on Normal"; spawningPrefab.gameObject.name = $"projected meshContainer position on Normal {i}"; }
+                    else { spawningPrefab.GetComponentInChildren<MeshRenderer>().SetMaterial(whiteBall); spawningPrefab.GetComponent<ScanNodeProperties>().headerText = $"Generated position {i}"; spawningPrefab.gameObject.name = $"Generated position {i}"; }
+                    
                     if (debugLogs) InitialScript.Logger.LogInfo($"Successfully spawned ball at {wallVectors[i][0]} |{i}|");
 
                     if (i > 4 && validWallVector)
                     {
                         spawningPrefab.GetComponentInChildren<MeshRenderer>().material = yellowBall;
                     }
-
+                    if (i > 4 && failedRaycastList.Contains(i))
+                    {
+                        spawningPrefab.GetComponentInChildren<MeshRenderer>().material = redBall;
+                    }
                     if (wallVectors[i].Count > 1)
                     {
                         if (debugLogs) InitialScript.Logger.LogInfo("Found multiple vectors");
 
                         try {
-                            renderedLine = spawningPrefab.GetComponentInChildren<LineRenderer>(); renderedLine.material = spawningPrefab.GetComponentInChildren<MeshRenderer>().material; renderedLine.useWorldSpace = true;
+                            InitialScript.Logger.LogInfo($"Setting rendered line for {i}, 0: {wallVectors[i][0]}, 1: {wallVectors[i][1]}");
+                            renderedLine = spawningPrefab.GetComponentInChildren<LineRenderer>(); renderedLine.material = spawningPrefab.GetComponentInChildren<MeshRenderer>().sharedMaterial; /* = spawningPrefab.GetComponentInChildren<MeshRenderer>().material*/ renderedLine.useWorldSpace = true;
+                            renderedLine.gameObject.name = $"{spawningPrefab.gameObject.name} {i}";
+                            InitialScript.Logger.LogInfo($"Set name for {i}, 0: {renderedLine.gameObject.name}, 1: {spawningPrefab.gameObject.name}");
                             SetRenderedLinePoints(wallVectors[i].ToArray(), renderedLine);
                         }
                         catch (Exception e) {
@@ -506,12 +467,34 @@ namespace SpiderPositionFix.Patches
                             InitialScript.Logger.LogError(e);
                         }
                     }
+
+                    instanceData.debugObjects.Add(i, UnityEngine.Object.Instantiate(spawningPrefab, wallVectors[i][0], Quaternion.identity));
                 }
                 catch (Exception e)
                 {
                     InitialScript.Logger.LogError($"failed to spawn a ball |{i}|");
                     InitialScript.Logger.LogError(e);
                 }
+            }
+
+            [HarmonyTranspiler]
+            [HarmonyPatch(nameof(SandSpiderAI.GetWallPositionForSpiderMesh))]
+            static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
+            {
+                if (true)
+                {
+                    InitialScript.Logger.LogWarning("Fired Transpiller");
+                    CodeMatcher matcher = new CodeMatcher(instructions);
+
+                    matcher.MatchForward(false,
+                        new CodeMatch(OpCodes.Call, RoundManager.Instance),
+                        new CodeMatch(OpCodes.Ldarg_0),
+                        new CodeMatch(OpCodes.Call, typeof(UnityEngine.Component).GetMethod(nameof(Component.transform.position), BindingFlags.Instance | BindingFlags.Public)))
+                        .ThrowIfInvalid("Failed to find a match").Set(OpCodes.Ldfld, AccessTools.Field(typeof(SandSpiderAI), nameof(SandSpiderAI.homeNode)));
+                    InitialScript.Logger.LogWarning("Transpiller Finished");
+                    return matcher.Instructions();
+                }
+                return instructions;
             }
         }
 
@@ -533,6 +516,17 @@ namespace SpiderPositionFix.Patches
             spawningPrefab.GetComponentInChildren<MeshRenderer>().material = material;
             spawningPrefab.GetComponent<ScanNodeProperties>().headerText = headerText;
             instanceData.debugObjects.Add(index, UnityEngine.Object.Instantiate(spawningPrefab, position, Quaternion.identity));
+        }
+
+        private bool GetWallPositionForSpiderMesh(SandSpiderAI __instance)
+        {
+            float num = 6f;
+            Vector3 check = __instance.transform.position;
+
+            float num2 = RoundManager.Instance.YRotationThatFacesTheNearestFromPosition(__instance.transform.position + Vector3.up * num, 10f);
+            float num3 = RoundManager.Instance.YRotationThatFacesTheNearestFromPosition(__instance.homeNode.position + Vector3.up * num, 10f);
+
+            return false;
         }
     }
 }
