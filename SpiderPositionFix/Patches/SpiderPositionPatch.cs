@@ -35,12 +35,14 @@ namespace SpiderPositionFix.Patches
         static bool debugVisals = InitialScript.configSettings.debugVisuals.Value;
         static Dictionary<SandSpiderAI, spiderPositionData> spiderData = [];
 
+#pragma warning disable CS8618 // Pole, které nemùže být null, musí pøi ukonèování konstruktoru obsahovat hodnotu, která není null. Zvažte pøidání modifikátoru required nebo deklaraci s možnou hodnotou null.
         static GameObject ballPrefab;
         static Material whiteBall;
         static Material redBall;
         static Material blueBall;
         static Material greenBall;
         static Material yellowBall;
+#pragma warning restore CS8618 // Pole, které nemùže být null, musí pøi ukonèování konstruktoru obsahovat hodnotu, která není null. Zvažte pøidání modifikátoru required nebo deklaraci s možnou hodnotou null.
 
         public static Transform getWallPosTransform(SandSpiderAI instance)
         {
@@ -199,13 +201,14 @@ namespace SpiderPositionFix.Patches
             {
                 if (instanceData.startPatch != true) return;
 
-                if (!__instance.onWall && !__instance.agent.isOnOffMeshLink && Vector3.Distance(__instance.meshContainer.position, __instance.transform.position) > 0.35f && __instance.agent.velocity.magnitude > 2f && __instance.agent.speed > 0.5f)
+                if (!__instance.onWall && !__instance.agent.isOnOffMeshLink && Vector3.Distance(__instance.meshContainer.position, __instance.transform.position) > 0.35f)
                 {
-                    __instance.meshContainerTarget = __instance.transform.position + __instance.agent.velocity.normalized * 1.25f;
+                    if (__instance.agent.velocity.magnitude > 3f && __instance.agent.speed > 0.5f) __instance.meshContainerTarget = __instance.transform.position + __instance.agent.velocity.normalized * 1.25f;
+                    else __instance.meshContainerTarget = __instance.transform.position + __instance.agent.velocity * Time.deltaTime;
                 }
             }
 
-            if (!__instance.onWall && !__instance.gotWallPositionInLOS)
+            if (!__instance.onWall && !__instance.gotWallPositionInLOS && debugVisals)
             {
                 foreach (GameObject i in instanceData.debugObjects.Values.ToList())
                 {
@@ -285,14 +288,18 @@ namespace SpiderPositionFix.Patches
                 {
                     if (spiderData[__instance].time <= 0f && debugLogs) { InitialScript.Logger.LogDebug(__instance.agent.velocity.magnitude); spiderData[__instance].time = 0.4f; }
 
-                    if (__instance.agent.velocity.magnitude > 2f && !__instance.overrideSpiderLookRotation)
+                    if (__instance.agent.velocity.magnitude > 3f && !__instance.overrideSpiderLookRotation)
                     {
                         __instance.meshContainerTargetRotation = Quaternion.LookRotation(__instance.agent.velocity.normalized * Time.deltaTime, Vector3.up);
                     }
 
-                    if (__instance.agent.velocity.magnitude > 2f && __instance.agent.speed > 0.5f)
+                    if (__instance.agent.velocity.magnitude > 3f && __instance.agent.speed > 0.5f)
                     {
-                        __instance.navigateToPositionTarget = __instance.transform.position + __instance.agent.velocity.normalized * Time.deltaTime * 1.25f;
+                        __instance.navigateToPositionTarget = __instance.transform.position + __instance.agent.velocity.normalized * 1.25f;
+                    }
+                    else
+                    {
+                        __instance.navigateToPositionTarget = __instance.transform.position + __instance.agent.velocity;
                     }
 
                 }
@@ -495,10 +502,11 @@ namespace SpiderPositionFix.Patches
                 }
             }
 
-            
             [HarmonyTranspiler]
             [HarmonyPatch(nameof(SandSpiderAI.GetWallPositionForSpiderMesh))]
+#pragma warning disable CS8321 // Lokální funkce je deklarovaná, ale vùbec se nepoužívá.
             static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
+#pragma warning restore CS8321 // Lokální funkce je deklarovaná, ale vùbec se nepoužívá.
             {
                 InitialScript.Logger.LogWarning("Fired Transpiller");
                 CodeMatcher matcher = new CodeMatcher(instructions);
@@ -509,33 +517,28 @@ namespace SpiderPositionFix.Patches
                     new CodeMatch(OpCodes.Ldarg_0),
                     new CodeMatch(OpCodes.Call, typeof(Component).GetMethod("get_Transform")))
                     .ThrowIfInvalid("Failed to find a match")
-                    .Set(OpCodes.Call, AccessTools.Method(typeof(SpiderPositionPatch), nameof(SpiderPositionPatch.getWallPosTransform), [typeof(SandSpiderAI)]));
-                        
-
-                InitialScript.Logger.LogWarning("Transpiller Finished");
-
-                int offset = 0;
+                    .Set(OpCodes.Call, AccessTools.Method(typeof(SpiderPositionPatch), nameof(SpiderPositionPatch.getWallPosTransform), [typeof(SandSpiderAI)]));    
 
                 for (int i = 0; i < instructions.ToList().Count; i++)
                 {
+                    if (!debugLogs) break;
                     try
                     {
-                        if (matcher.Instructions().ToList()[i].ToString() != instructions.ToList()[i + offset].ToString())
+                        if (matcher.Instructions().ToList()[i].ToString() != instructions.ToList()[i].ToString())
                         {
-                            InitialScript.Logger.LogError($"{matcher.Instructions().ToList()[i]} : {instructions.ToList()[i + offset]}");
+                            InitialScript.Logger.LogError($"{matcher.Instructions().ToList()[i]} : {instructions.ToList()[i]}");
                             //offset--;
                         }
-                        else InitialScript.Logger.LogInfo(instructions.ToList()[i + offset]);
+                        else InitialScript.Logger.LogInfo(instructions.ToList()[i]);
                     }
                     catch
                     {
                         InitialScript.Logger.LogError("Failed to read instructions");
                     }
                 }
-
+                InitialScript.Logger.LogWarning("Transpiller Finished");
                 return matcher.Instructions();
             }
-           
         }
         
         public static void SetRenderedLinePoints(Vector3[] positions, LineRenderer lr)

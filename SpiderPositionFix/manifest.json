@@ -1,6 +1,6 @@
 {
   "name": "SpiderPositionFix",
-  "version_number": "1.5.0",
+  "version_number": "1.5.1",
   "website_url": "https://github.com/Fandovec03/SpiderPositionFix",
   "description": "Host fixes for bunker spider. Fixes desync/separation between agent and mesh container. Client-side fix for the offset idle animation",
   "dependencies": []

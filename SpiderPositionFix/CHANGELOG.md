@@ -1,3 +1,11 @@
+## 1.5.1
+
+- Debug logs toggles Transpiler logs
+
+### Bug fixes
+- **Fixed NRE spam when debugVisuals toggle was off**
+- Fixed spider going through doors
+
 ## 1.5.0
 
 ###  Reworked spider movement tweaks
