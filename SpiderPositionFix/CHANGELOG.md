@@ -1,3 +1,7 @@
+## 1.5.2
+
+- Spider no longer turns around randomly when stationary
+
 ## 1.5.1
 
 - Debug logs toggles Transpiler logs

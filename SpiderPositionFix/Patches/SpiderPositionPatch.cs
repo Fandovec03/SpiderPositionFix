@@ -290,7 +290,8 @@ namespace SpiderPositionFix.Patches
 
                     if (__instance.agent.velocity.magnitude > 3f && !__instance.overrideSpiderLookRotation)
                     {
-                        __instance.meshContainerTargetRotation = Quaternion.LookRotation(__instance.agent.velocity.normalized * Time.deltaTime, Vector3.up);
+
+                        __instance.meshContainerTargetRotation = Quaternion.LookRotation(__instance.agent.velocity.normalized + (__instance.meshContainer.transform.forward * 0.02f), Vector3.up);
                     }
 
                     if (__instance.agent.velocity.magnitude > 3f && __instance.agent.speed > 0.5f)
