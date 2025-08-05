@@ -1,3 +1,6 @@
+## 1.5.3
+- Fixed case where missing spider data in the dictionary would completely break spider
+
 ## 1.5.2
 
 - Spider no longer turns around randomly when stationary

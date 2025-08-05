@@ -16,7 +16,7 @@ Animation fixes are client-sided
 - Visual debuging tools for movement and casting wall position
 	- Could be used in the future for improved wall climbing movement
 
-Report any bugs via [Github issues](https://github.com/Fandovec03/SpiderPositionFix) or in the Oficial LC Modding / Unofficial Modding discord server.
+Report any bugs via [Github issues](https://github.com/Fandovec03/SpiderPositionFix) or in the Official LC Modding / Unofficial Modding discord server.
 
 ## Special thanks to:
 - Audio Knight: Reporting important bug

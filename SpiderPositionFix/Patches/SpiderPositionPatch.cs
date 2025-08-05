@@ -33,7 +33,7 @@ namespace SpiderPositionFix.Patches
     {
         static bool debugLogs = InitialScript.configSettings.debugLogs.Value;
         static bool debugVisals = InitialScript.configSettings.debugVisuals.Value;
-        static Dictionary<SandSpiderAI, spiderPositionData> spiderData = [];
+        internal static Dictionary<SandSpiderAI, spiderPositionData> spiderData = [];
 
 #pragma warning disable CS8618 // Pole, které nemùže být null, musí pøi ukonèování konstruktoru obsahovat hodnotu, která není null. Zvažte pøidání modifikátoru required nebo deklaraci s možnou hodnotou null.
         static GameObject ballPrefab;
@@ -47,19 +47,19 @@ namespace SpiderPositionFix.Patches
         public static Transform getWallPosTransform(SandSpiderAI instance)
         {
             string valueName = "";
-
-            if (spiderData[instance].faildetToGetPositionTimes > 10)
+            spiderPositionData data = GetSpiderData(instance);
+            if (data.faildetToGetPositionTimes > 10)
             {
                 valueName = nameof(instance.homeNode) + " instance.homeNode";
-                spiderData[instance].altWallPosForMesh = instance.homeNode;
+                data.altWallPosForMesh = instance.homeNode;
             }
             else
             {
                 valueName = nameof(instance.transform) + " instance.transform";
-                spiderData[instance].altWallPosForMesh = instance.transform;
+                data.altWallPosForMesh = instance.transform;
             }
             if (debugLogs) InitialScript.Logger.LogInfo($"Returning {valueName}");
-            return spiderData[instance].altWallPosForMesh;
+            return data.altWallPosForMesh;
         }
 
 
@@ -96,12 +96,8 @@ namespace SpiderPositionFix.Patches
                     InitialScript.Logger.LogError("Failed to load OverrideController asset");
                 }
             }
-            if (!spiderData.ContainsKey(__instance))
-            {
-                spiderData.Add(__instance, new spiderPositionData());
-            }
-            spiderData[__instance].startPatch = true;
-            spiderData[__instance].altWallPosForMesh = __instance.transform;
+            GetSpiderData(__instance).startPatch = true;
+            GetSpiderData(__instance).altWallPosForMesh = __instance.transform;
 
         }
 
@@ -109,7 +105,7 @@ namespace SpiderPositionFix.Patches
         [HarmonyPrefix]
         static void UpdatePrefix(SandSpiderAI __instance)
         {
-            spiderPositionData instanceData = spiderData[__instance];
+            spiderPositionData instanceData = GetSpiderData(__instance);
 
             if (__instance.IsOwner)
             {
@@ -143,7 +139,7 @@ namespace SpiderPositionFix.Patches
         [HarmonyPostfix]
         static void UpdatePostfix(SandSpiderAI __instance)
         {
-            spiderPositionData instanceData = spiderData[__instance];
+            spiderPositionData instanceData = GetSpiderData(__instance);
 
             if (!__instance.IsOwner) return;
 
@@ -188,7 +184,7 @@ namespace SpiderPositionFix.Patches
             }
             if (__instance.reachedWallPosition)
             {
-                spiderData[__instance].reachTheWallFail = false;
+                instanceData.reachTheWallFail = false;
             }
         }
 
@@ -196,7 +192,7 @@ namespace SpiderPositionFix.Patches
         [HarmonyPostfix]
         static void MeshContainerPositionFix(SandSpiderAI __instance)
         {
-            spiderPositionData instanceData = spiderData[__instance];
+            spiderPositionData instanceData = GetSpiderData(__instance);
             if (__instance.IsOwner)
             {
                 if (instanceData.startPatch != true) return;
@@ -230,6 +226,7 @@ namespace SpiderPositionFix.Patches
         [HarmonyPrefix]
         static bool MeshMovementPatch(SandSpiderAI __instance)
         {
+            spiderPositionData data = GetSpiderData(__instance);
             if (__instance.lookingForWallPosition && __instance.gotWallPositionInLOS)
             {
                 if (!__instance.onWall)
@@ -237,32 +234,32 @@ namespace SpiderPositionFix.Patches
                     float distanceFromFloorPosition = Vector3.Distance(__instance.transform.position, __instance.floorPosition);
                     float distanceFromFloorPositionMesh = Vector3.Distance(__instance.meshContainer.position, __instance.floorPosition);
 
-                    if (spiderData[__instance].delayTimer > 1f)
+                    if (data.delayTimer > 1f)
                     {
                         if (debugLogs)
                         {
                             InitialScript.Logger.LogDebug("distanceFromFloorPosition: " + distanceFromFloorPosition);
                             InitialScript.Logger.LogDebug("distanceFromFloorPositionMesh: " + distanceFromFloorPositionMesh);
                         }
-                        spiderData[__instance].delayTimer = 0f;
-                        spiderData[__instance].delayTimes++;
+                        data.delayTimer = 0f;
+                        data.delayTimes++;
 
-                        if (spiderData[__instance].delayTimes >= 20)
+                        if (data.delayTimes >= 20)
                         {
                             InitialScript.Logger.LogWarning(__instance + ", NWID " + __instance.NetworkObjectId + " failing to climb walls within set timer!");
-                            spiderData[__instance].delayTimes = 0;
+                            data.delayTimes = 0;
                         }
                     }
                     else
                     {
-                        spiderData[__instance].delayTimer += Time.deltaTime;
+                        data.delayTimer += Time.deltaTime;
                     }
                     __instance.SetDestinationToPosition(__instance.floorPosition);
                     __instance.CalculateSpiderPathToPosition();
                     if (distanceFromFloorPosition < 0.7f && distanceFromFloorPositionMesh < 0.7f)
                     {
                         __instance.onWall = true;
-                        spiderData[__instance].delayTimes = 0;
+                        data.delayTimes = 0;
                         return true;
                     }
                     return false;
@@ -275,6 +272,7 @@ namespace SpiderPositionFix.Patches
         [HarmonyPostfix]
         static void MeshMovementPostfixPatch(SandSpiderAI __instance)
         {
+            spiderPositionData data = GetSpiderData(__instance);
             if (!__instance.onWall)
             {
                 if (__instance.agent.isOnOffMeshLink)
@@ -286,7 +284,7 @@ namespace SpiderPositionFix.Patches
                 }
                 else
                 {
-                    if (spiderData[__instance].time <= 0f && debugLogs) { InitialScript.Logger.LogDebug(__instance.agent.velocity.magnitude); spiderData[__instance].time = 0.4f; }
+                    if (data.time <= 0f && debugLogs) { InitialScript.Logger.LogDebug(__instance.agent.velocity.magnitude); data.time = 0.4f; }
 
                     if (__instance.agent.velocity.magnitude > 3f && !__instance.overrideSpiderLookRotation)
                     {
@@ -343,7 +341,7 @@ namespace SpiderPositionFix.Patches
         [HarmonyPostfix]
         static void GetWallPositionForSpiderMeshPatch(SandSpiderAI __instance, ref bool __result)
         {
-            spiderPositionData instanceData = spiderData[__instance];
+            spiderPositionData instanceData = GetSpiderData(__instance);
             NavMeshHit NMHit = new NavMeshHit();
             Vector3 normalPosition = __instance.wallPosition + __instance.wallNormal;
             Vector3 normalProjection = new Vector3(normalPosition.x, __instance.wallPosition.y, normalPosition.z);
@@ -377,11 +375,11 @@ namespace SpiderPositionFix.Patches
                     if (newFloorPosition == Vector3.zero || RoundManager.Instance.GetNavMeshPosition(newFloorPosition, NMHit, 0.7f) == newFloorPosition || !__instance.agent.CalculatePath(newFloorPosition, pathCheck) || pathCheck.status == NavMeshPathStatus.PathPartial || pathCheck.status == NavMeshPathStatus.PathInvalid)
                     {
                         __result = false;
-                        spiderData[__instance].faildetToGetPositionTimes++;
+                        instanceData.faildetToGetPositionTimes++;
                         continue;
                     }
                     __instance.floorPosition = newFloorPosition;
-                    spiderData[__instance].faildetToGetPositionTimes = 0;
+                    instanceData.faildetToGetPositionTimes = 0;
                     __result = true;
                     instanceData.invalidPositionTimer = 0f;
                     InitialScript.Logger.LogMessage($"Assigned new floor position.");
@@ -556,10 +554,30 @@ namespace SpiderPositionFix.Patches
 
         public static void InstantiateVisalTool(SandSpiderAI __instance, GameObject spawningPrefab, Material material, string headerText, int index, Vector3 position)
         {
-            spiderPositionData instanceData = spiderData[__instance];
+            spiderPositionData instanceData = GetSpiderData(__instance);
             spawningPrefab.GetComponentInChildren<MeshRenderer>().material = material;
             spawningPrefab.GetComponent<ScanNodeProperties>().headerText = headerText;
             instanceData.debugObjects.Add(index, UnityEngine.Object.Instantiate(spawningPrefab, position, Quaternion.identity));
+        }
+
+        static spiderPositionData GetSpiderData(SandSpiderAI spider)
+        {
+            if (!spiderData.ContainsKey(spider)) spiderData.Add(spider, new spiderPositionData());
+            return spiderData[spider];
+        }
+    }
+
+    class EnemyAIPatch
+    {
+        [HarmonyPatch(typeof(EnemyAI), nameof(EnemyAI.OnDestroy))]
+        [HarmonyPostfix]
+        public static void OnDestroyPatch(EnemyAI aI)
+        {
+            if (aI is SandSpiderAI)
+            {
+                SpiderPositionPatch.spiderData.Remove((SandSpiderAI)aI);
+                InitialScript.Logger.LogMessage($"Cleared {aI.enemyType.enemyName} #{aI.thisEnemyIndex}'s data");
+            }
         }
     }
 }
