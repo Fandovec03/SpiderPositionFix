@@ -1,3 +1,9 @@
+## 1.6.0
+
+- Changed how mesh position is calculated to make it more consistent across clients
+- Fixed serverPosition not being updated in certain cases
+- Changed how visual debug objects are deleted
+
 ## 1.5.3
 - Fixed case where missing spider data in the dictionary would completely break spider
 
