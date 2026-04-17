@@ -1,5 +1,11 @@
-## 1.6.0
+## 1.6.1
+- Removed all lines of code and assets from the bundle related to the debug tools. They've been separated into a different mod. Could release the tools if people are interested
+- Redone idle animation fix. Now the bundle contains only the animation clip instead of the entire override controller
+- Navmesh agent is stopped when spider is on walls instead of disabling the agent
+- Agent speed is now tied to spiderSpeed variable instead of a set number
+- Adjusted the target position formula and conditions
 
+## 1.6.0
 - Changed how mesh position is calculated to make it more consistent across clients
 - Fixed serverPosition not being updated in certain cases
 - Changed how visual debug objects are deleted
