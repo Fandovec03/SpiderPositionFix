@@ -15,19 +15,16 @@ namespace SpiderPositionFix.Patches
     {
         public int currentJumpMaskBit = 1;
         public bool startPatch = false;
-        //public bool applySpeedSlowdown = false;
+        public bool isSlowedDown = false;
         public float originalSpeed = 4.25f;
         public float offsetSpeed = 0f;
-        //public float reachedWallTimer = 0f;
         public float delayTimer = 0f;
         public int delayTimes = 0;
         public bool reachTheWallFail = false;
         public float time = 0.2f;
-        //public Vector3 originalWallPosition = Vector3.zero;
         public float invalidPositionTimer = 0f;
         public int faildetToGetPositionTimes = 0;
         public Transform altWallPosForMesh = new Transform();
-        //public bool randomWallPosTurn = false;
         public Vector3 previousMeshContainerPos = Vector3.zero;
     }
 
@@ -163,8 +160,12 @@ namespace SpiderPositionFix.Patches
             if (Vector3.Distance(__instance.transform.position, __instance.meshContainer.position) > 2f && !__instance.onWall)
             {
                 __instance.agent.speed = __instance.spiderSpeed / 3;
+                instanceData.isSlowedDown = true;
             }
-
+            else
+            {
+                instanceData.isSlowedDown = false;
+            }
             if (InitialScript.debugTools)
             {
                 SPF_debugToolsClass.SetDebugObjectsPosition(__instance);
@@ -251,10 +252,9 @@ namespace SpiderPositionFix.Patches
 
                 Vector3 meshTargetPosition = __instance.meshContainer.position;
 
-
-                if (__instance.agent.velocity.sqrMagnitude > 1f * 1f) meshTargetPosition = __instance.transform.position + __instance.agent.velocity;
+                if (__instance.agent.velocity.magnitude > 1.0f) meshTargetPosition = __instance.transform.position + (__instance.agent.velocity * 1.25f * __instance.AIIntervalTime);
                 //else meshTargetPosition = __instance.meshContainer.position;
-
+                if (instanceData.isSlowedDown) meshTargetPosition = __instance.transform.position;
                 __instance.meshContainerTarget = meshTargetPosition;
             }
         }
