@@ -1,16 +1,18 @@
 using BepInEx;
+using BepInEx.Bootstrap;
 using BepInEx.Configuration;
 using BepInEx.Logging;
 using HarmonyLib;
-using UnityEngine;
 using SpiderPositionFix.Patches;
 using System.Collections.Generic;
-using System.Reflection;
 using System.IO;
+using System.Reflection;
+using UnityEngine;
 
 namespace SpiderPositionFix
 {
     [BepInPlugin(MyPluginInfo.PLUGIN_GUID, MyPluginInfo.PLUGIN_NAME, MyPluginInfo.PLUGIN_VERSION)]
+    [BepInDependency("SPF_debugTools", BepInDependency.DependencyFlags.SoftDependency)]
     public class InitialScript : BaseUnityPlugin
     {
         public static InitialScript Instance { get; private set; } = null!;
@@ -18,6 +20,8 @@ namespace SpiderPositionFix
         internal static Harmony? Harmony { get; set; }
         internal static ConfigClass configSettings { get; set; } = null;
         public static AssetBundle SpiderAssets;
+        internal static bool debugTools = false;
+        internal static bool debugToolsInit = false;
         private void Awake()
         {
             Logger = base.Logger;
@@ -43,7 +47,11 @@ namespace SpiderPositionFix
             Logger.LogDebug("Patching spider position fix...");
 
             Harmony.PatchAll(typeof(SpiderPositionPatch));
-
+            if (Chainloader.PluginInfos.ContainsKey("SPF_debugTools"))
+            {
+                //Harmony.PatchAll(typeof(SPF_debugToolsClass));
+                debugTools = true;
+            }
             Logger.LogDebug("Finished patching!");
         }
 
@@ -62,7 +70,7 @@ namespace SpiderPositionFix
         public readonly ConfigEntry<bool> applyMask;
         //debug
         public readonly ConfigEntry<bool> debugLogs;
-        public readonly ConfigEntry<bool> debugVisuals;
+        //public readonly ConfigEntry<bool> debugVisuals;
 
         public ConfigClass(ConfigFile cfg)
         {
@@ -71,7 +79,6 @@ namespace SpiderPositionFix
                 applyMask = cfg.Bind("Settings", "Apply changes to agent areaMask", true, "Apply the changes made to the spider agent areaMask. This will affect the pathfinding over offMeshLinks");
                 //debug
                 debugLogs = cfg.Bind("Debug", "Debug logs", false, "Enable debug logs");
-                debugVisuals = cfg.Bind("Debug", "Debug visuals", false, "Enable visual debug tools.");
             }
             ClearOrphanedEntries(cfg);
             cfg.Save();
