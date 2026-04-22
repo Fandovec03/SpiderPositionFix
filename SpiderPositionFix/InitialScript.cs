@@ -68,6 +68,7 @@ namespace SpiderPositionFix
     class ConfigClass
     {
         public readonly ConfigEntry<bool> applyMask;
+        public readonly ConfigEntry<bool> modifyRadius;
         public readonly ConfigEntry<float> agentRadius;
         //debug
         public readonly ConfigEntry<bool> debugLogs;
@@ -80,7 +81,8 @@ namespace SpiderPositionFix
                 applyMask = cfg.Bind("Settings", "Apply changes to agent areaMask", true, "Apply the changes made to the spider agent areaMask. This will affect the pathfinding over offMeshLinks");
                 //debug
                 debugLogs = cfg.Bind("Debug", "Debug logs", false, "Enable debug logs");
-                agentRadius = cfg.Bind("Settings", "Pathfinding agent radius", 1.5f, "Vanilla: 2\nDefault: 1.4\n\nSet pathfinding agent's collision avoidance radius.");
+                modifyRadius = cfg.Bind("Settings", "Modify agent radius", false, "Should this mod modify the agent radius?");
+                agentRadius = cfg.Bind("Settings", "Pathfinding agent radius", 2f, "[Modify agent radius toggle must be on] \n Vanilla: 2 \n\n Set pathfinding agent's collision avoidance radius.");
             }
             ClearOrphanedEntries(cfg);
             cfg.Save();
