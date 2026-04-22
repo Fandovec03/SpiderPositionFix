@@ -53,12 +53,17 @@ namespace SpiderPositionFix.Patches
             return data.altWallPosForMesh;
         }
 
+        [HarmonyPatch("Start")]
+        [HarmonyPrefix]
+        static void StartPrefix(SandSpiderAI __instance)
+        {
+            if (InitialScript.configSettings.modifyRadius.Value == true) __instance.agent.radius = InitialScript.configSettings.agentRadius.Value;
+        }
 
         [HarmonyPatch("Start")]
         [HarmonyPostfix]
         static void StartPostfix(SandSpiderAI __instance)
         {
-            __instance.agent.radius = InitialScript.configSettings.agentRadius.Value;
             if (InitialScript.SpiderAssets != null)
             {
                 try

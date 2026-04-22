@@ -1,5 +1,5 @@
 ## 1.6.2
-- Added config to change spider's navmesh agent radius for collision avoidance
+- Added config settings to change spider's navmesh agent radius for collision avoidance
 - Reverted change stopping agent instead of disabling
 
 ## 1.6.1
