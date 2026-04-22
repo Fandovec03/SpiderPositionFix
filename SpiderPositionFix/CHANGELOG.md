@@ -1,3 +1,7 @@
+## 1.6.2
+- Added config to change spider's navmesh agent radius for collision avoidance
+- Reverted change stopping agent instead of disabling
+
 ## 1.6.1
 - Removed all lines of code and assets from the bundle related to the debug tools. They've been separated into a different mod. Could release the tools if people are interested
 - Redone idle animation fix. Now the bundle contains only the animation clip instead of the entire override controller
