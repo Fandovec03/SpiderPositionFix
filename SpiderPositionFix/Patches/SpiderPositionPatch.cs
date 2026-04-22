@@ -58,6 +58,7 @@ namespace SpiderPositionFix.Patches
         [HarmonyPostfix]
         static void StartPostfix(SandSpiderAI __instance)
         {
+            __instance.agent.radius = InitialScript.configSettings.agentRadius.Value;
             if (InitialScript.SpiderAssets != null)
             {
                 try
@@ -90,16 +91,16 @@ namespace SpiderPositionFix.Patches
             {
                 if (instanceData.time > 0f) instanceData.time -= Time.deltaTime;
 
-                if (__instance.onWall && __instance.agent.isStopped == false)
+                if (__instance.onWall && __instance.agent.enabled == true)
                 {
                     __instance.agent.avoidancePriority = 99;
-                    __instance.agent.isStopped = true;
+                    __instance.agent.enabled = false;
                 }
 
-                if (!__instance.onWall && __instance.agent.isStopped == true)
+                if (!__instance.onWall && __instance.agent.enabled == false)
                 {
                     __instance.agent.avoidancePriority = 25;
-                    __instance.agent.isStopped = false;
+                    __instance.agent.enabled = true;
                 }
             }
             else
