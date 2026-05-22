@@ -47,6 +47,7 @@ namespace SpiderPositionFix
             Logger.LogDebug("Patching spider position fix...");
 
             Harmony.PatchAll(typeof(SpiderPositionPatch));
+            Harmony.PatchAll(typeof(EnemyAIPatch));
             if (Chainloader.PluginInfos.ContainsKey("SPF_debugTools"))
             {
                 //Harmony.PatchAll(typeof(SPF_debugToolsClass));
