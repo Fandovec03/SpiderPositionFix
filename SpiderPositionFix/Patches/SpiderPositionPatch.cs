@@ -19,7 +19,10 @@ namespace SpiderPositionFix.Patches
         public float originalSpeed = 4.25f;
         public float offsetSpeed = 0f;
         public float delayTimer = 0f;
+        public float previousDistanceFromFloor = 0;
+        public float previousMeshDistanceFromFloor = 0;
         public int delayTimes = 0;
+        public float slowdownTimer = 0f;
         public bool reachTheWallFail = false;
         public float time = 0.2f;
         public float invalidPositionTimer = 0f;
@@ -54,13 +57,6 @@ namespace SpiderPositionFix.Patches
         }
 
         [HarmonyPatch("Start")]
-        [HarmonyPrefix]
-        static void StartPrefix(SandSpiderAI __instance)
-        {
-            if (InitialScript.configSettings.modifyRadius.Value == true) __instance.agent.radius = InitialScript.configSettings.agentRadius.Value;
-        }
-
-        [HarmonyPatch("Start")]
         [HarmonyPostfix]
         static void StartPostfix(SandSpiderAI __instance)
         {
@@ -84,6 +80,8 @@ namespace SpiderPositionFix.Patches
                 InitialScript.debugToolsInit = true;
             }
             GetSpiderData(__instance).altWallPosForMesh = __instance.transform;
+
+            if (InitialScript.configSettings.modifyRadius.Value == true) __instance.agent.radius = InitialScript.configSettings.agentRadius.Value;
         }
 
         [HarmonyPatch("Update")]
@@ -146,7 +144,7 @@ namespace SpiderPositionFix.Patches
 
             if (!__instance.onWall)
             {
-                if (__instance.currentBehaviourStateIndex != 1) __instance.agent.speed = __instance.spiderSpeed;
+                if (__instance.currentBehaviourStateIndex != 1 || Vector3.Distance(__instance.meshContainer.position, __instance.floorPosition) > 2f) __instance.agent.speed = __instance.spiderSpeed;
 
                 if (__instance.agent.isOnOffMeshLink)
                 {
@@ -163,10 +161,18 @@ namespace SpiderPositionFix.Patches
                 instanceData.reachTheWallFail = false;
             }
 
-            if (Vector3.Distance(__instance.transform.position, __instance.meshContainer.position) > 2f && !__instance.onWall)
+            if (Vector3.Distance(__instance.transform.position, __instance.meshContainer.position) > 2f && !__instance.onWall || instanceData.slowdownTimer > 0f)
             {
                 __instance.agent.speed = __instance.spiderSpeed / 3;
                 instanceData.isSlowedDown = true;
+                if (instanceData.slowdownTimer <= 0f)
+                {
+                    instanceData.slowdownTimer = 0.3f;
+                }
+                else
+                {
+                    instanceData.slowdownTimer -= Time.deltaTime;
+                }
             }
             else
             {
@@ -221,13 +227,15 @@ namespace SpiderPositionFix.Patches
                         {
                             InitialScript.Logger.LogDebug("distanceFromFloorPosition: " + distanceFromFloorPosition);
                             InitialScript.Logger.LogDebug("distanceFromFloorPositionMesh: " + distanceFromFloorPositionMesh);
+                            data.previousDistanceFromFloor = distanceFromFloorPosition;
+                            data.previousMeshDistanceFromFloor = distanceFromFloorPositionMesh;
                         }
                         data.delayTimer = 0f;
                         data.delayTimes++;
 
-                        if (data.delayTimes >= 20)
+                        if (data.delayTimes >= 3 && data.previousMeshDistanceFromFloor == distanceFromFloorPositionMesh)
                         {
-                            InitialScript.Logger.LogWarning(__instance + ", NWID " + __instance.NetworkObjectId + " failing to climb walls within set timer!");
+                            InitialScript.Logger.LogWarning(__instance + ", NWID " + __instance.NetworkObjectId + " detected spider failing to climb!");
                             data.delayTimes = 0;
                         }
                     }
@@ -351,6 +359,13 @@ namespace SpiderPositionFix.Patches
 
             if (debugLogs) InitialScript.Logger.LogInfo($"Test | WallPosition: {__instance.wallPosition}, unmodifiedWallPosition: {unmodifiedWallPosition}");
 
+            if (unmodifiedWallPosition == Vector3.zero)
+            {
+                InitialScript.Logger.LogError("unmmodified wall position is zero!");
+                return;
+
+            }
+
             if (__instance.floorPosition == Vector3.zero || RoundManager.Instance.GetNavMeshPosition(__instance.floorPosition, NMHit, 0.7f) == __instance.floorPosition || !__instance.agent.CalculatePath(__instance.floorPosition, pathCheck) || pathCheck.status == NavMeshPathStatus.PathPartial || pathCheck.status == NavMeshPathStatus.PathInvalid)
             {
                 if (instanceData.invalidPositionTimer <= 0f)
@@ -370,7 +385,12 @@ namespace SpiderPositionFix.Patches
                     {
                         newFloorPosition = rcHit.point;
                     }
-
+                    else
+                    {
+                        InitialScript.Logger.LogWarning("Floor position raycast failed!");
+                        __result = false;
+                        instanceData.faildetToGetPositionTimes++;
+                    }
                     if (newFloorPosition == Vector3.zero || RoundManager.Instance.GetNavMeshPosition(newFloorPosition, NMHit, 0.7f) == newFloorPosition || !__instance.agent.CalculatePath(newFloorPosition, pathCheck) || pathCheck.status == NavMeshPathStatus.PathPartial || pathCheck.status == NavMeshPathStatus.PathInvalid)
                     {
                         __result = false;
@@ -381,7 +401,7 @@ namespace SpiderPositionFix.Patches
                     instanceData.faildetToGetPositionTimes = 0;
                     __result = true;
                     instanceData.invalidPositionTimer = 0f;
-                    InitialScript.Logger.LogMessage($"Assigned new floor position.");
+                    InitialScript.Logger.LogMessage($"Assigned new floor position at {newFloorPosition}.");
                     break;
                 }
             }
@@ -437,19 +457,28 @@ namespace SpiderPositionFix.Patches
             return spiderData[spider];
         }
     }
-
     class EnemyAIPatch
     {
         [HarmonyPatch(typeof(EnemyAI), nameof(EnemyAI.OnDestroy))]
         [HarmonyPostfix]
-        public static void OnDestroyPatch(EnemyAI aI)
+        public static void OnDestroyPatch(EnemyAI __instance)
         {
-            if (aI is SandSpiderAI)
+            if (__instance is SandSpiderAI)
             {
-                SpiderPositionPatch.spiderData.Remove((SandSpiderAI)aI);
-                InitialScript.Logger.LogMessage($"Cleared {aI.enemyType.enemyName} #{aI.thisEnemyIndex}'s data");
-                if (InitialScript.debugTools) SPF_debugToolsClass.DeleteObjects((SandSpiderAI)aI);
+                SpiderPositionPatch.spiderData.Remove((SandSpiderAI)__instance);
+                InitialScript.Logger.LogMessage($"Cleared {__instance.enemyType.enemyName} #{__instance.thisEnemyIndex}'s data");
+                if (InitialScript.debugTools) SPF_debugToolsClass.DeleteObjects((SandSpiderAI)__instance);
             }
         }
+
+       /* [HarmonyPatch(typeof(EnemyAI), nameof(EnemyAI.StopSearch))]
+        [HarmonyPostfix]
+        public static void PatchStopSearch(AISearchRoutine search, bool clear)
+        {
+            if (search != null && clear)
+            {
+                search.unsearchedNodes.Clear();
+            }
+        }*/
     }
 }

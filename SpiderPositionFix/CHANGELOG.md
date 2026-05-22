@@ -1,3 +1,13 @@
+## 1.6.4
+- Fixed an issue where spider and mesh speed didn't match, causing them to separate over time
+- Fixed a patch for the method for getting a wall position incorrect behavior if wall or floor positions are invalid
+- Fixed data not deleting when spider is destroyed
+- Improved stuck spider detection and smoothened slowdowns
+- **Removed the pile of spiders at 0,0,0**
+
+## 1.6.3
+- Fixed spider breaking during spawning with the modify agent radius toggle on
+
 ## 1.6.2
 - Added config settings to change spider's navmesh agent radius for collision avoidance
 - Reverted change stopping agent instead of disabling
