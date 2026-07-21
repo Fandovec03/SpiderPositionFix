@@ -361,7 +361,7 @@ namespace SpiderPositionFix.Patches
 
             if (unmodifiedWallPosition == Vector3.zero)
             {
-                InitialScript.Logger.LogError("unmmodified wall position is zero!");
+                if (InitialScript.configSettings.muteZeroVectorError.Value != true) InitialScript.Logger.LogError("unmmodified wall position is zero!");
                 return;
 
             }

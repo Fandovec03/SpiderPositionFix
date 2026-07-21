@@ -1,3 +1,7 @@
+## 1.6.5
+- Added a toggle to mute an error from logging into logs
+- **Removed the pile of spiders at 0,0,0**
+
 ## 1.6.4
 - Fixed an issue where spider and mesh speed didn't match, causing them to separate over time
 - Fixed a patch for the method for getting a wall position incorrect behavior if wall or floor positions are invalid

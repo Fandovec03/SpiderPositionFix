@@ -71,6 +71,7 @@ namespace SpiderPositionFix
         public readonly ConfigEntry<bool> applyMask;
         public readonly ConfigEntry<bool> modifyRadius;
         public readonly ConfigEntry<float> agentRadius;
+        public readonly ConfigEntry<bool> muteZeroVectorError;
         //debug
         public readonly ConfigEntry<bool> debugLogs;
         //public readonly ConfigEntry<bool> debugVisuals;
@@ -84,6 +85,7 @@ namespace SpiderPositionFix
                 debugLogs = cfg.Bind("Debug", "Debug logs", false, "Enable debug logs");
                 modifyRadius = cfg.Bind("Settings", "Modify agent radius", false, "Should this mod modify the agent radius?");
                 agentRadius = cfg.Bind("Settings", "Pathfinding agent radius", 2f, "[Modify agent radius toggle must be on] \n Vanilla: 2 \n\n Set pathfinding agent's collision avoidance radius.");
+                muteZeroVectorError = cfg.Bind("Settings", "Mute: unmodified wall position is zero!", false, "Mutes this error from logging into logs. Under normal circumstances you shouldn't see this error. \n\nNot recommended.");
             }
             ClearOrphanedEntries(cfg);
             cfg.Save();
